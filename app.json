@@ -3,12 +3,14 @@
     "name": "taletrip",
     "slug": "taletrip",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "taletrip",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.anonymous.taletrip",
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +19,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.taletrip"
     },
     "web": {
       "output": "static",
@@ -34,7 +37,10 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-build-properties",
+      "@qvac/sdk/expo-plugin",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

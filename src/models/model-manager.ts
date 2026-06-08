@@ -23,6 +23,10 @@ export const ModelManager = {
     const tts = await ensure("tts", ttsLoad("en"));
     return { llm, tts };
   },
+  // Read-aloud only needs the TTS voice (the reader doesn't generate text).
+  async ensureTTS(language: "en" | "es" = "en") {
+    return ensure("tts", ttsLoad(language));
+  },
   // Hunt mode: serial swap — free LLM+TTS, load the VLM. Reverse on exit.
   async enterHunt() {
     await drop("tts"); await drop("llm");
