@@ -4,19 +4,16 @@
 // read-aloud and word pronounce. Fully offline.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ModelManager } from "@/models/model-manager";
 import { textToSpeech, TTS_SAMPLE_RATE } from "@/models/qvac";
 import { playPcm, stopPcm } from "@/reading/audio-player";
 import { readerPageText, type ReaderPage, type ReaderStory, type ReaderVocab } from "@/storypack/adapter";
-import { LISBON_MIA } from "@/storypack/packs/lisbon-mia";
+import { listPacks, loadPack, seedBundledIfEmpty } from "@/storypack/store";
 import { Btn, Card, Circ, MuteButton, Pill } from "@/ui/chrome";
 import { Icon } from "@/ui/icon";
 import { Mosaic } from "@/ui/mosaic";
 import { C, F, SHADOW } from "@/ui/tokens";
-
-// the active book (Studio output; later this comes from a selected/delivered pack)
-const STORYBOOK: ReaderStory = LISBON_MIA;
 
 function StoryText({ page, vocab, onWord }: { page: ReaderPage; vocab: ReaderVocab; onWord: (k: string) => void }) {
   return (
@@ -63,21 +60,46 @@ function VocabCard({ wordKey, vocab, onClose, silent, onHear }: { wordKey: strin
 
 export default function Reader() {
   const router = useRouter();
-  const S = STORYBOOK;
+  const params = useLocalSearchParams<{ id?: string }>();
+  const [story, setStory] = useState<ReaderStory | null>(null);
   const [page, setPage] = useState(0);
   const [word, setWord] = useState<string | null>(null);
   const [silent, setSilent] = useState(false);
   const [reading, setReading] = useState(false);
   const reqRef = useRef(0);
-  const pg = S.pages[page];
-  const last = S.pages.length - 1;
+
+  // load a StoryPack from the device documents (seed the bundled demo on first run)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await seedBundledIfEmpty();
+        const packs = listPacks();
+        if (!packs.length || cancelled) return;
+        const id = params.id && packs.some((p) => p.id === params.id) ? params.id : packs[0].id;
+        const s = loadPack(id);
+        if (!cancelled) {
+          setStory(s);
+          setPage(0);
+        }
+      } catch {
+        /* no pack available */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
+
+  const pg = story?.pages[page];
+  const last = story ? story.pages.length - 1 : 0;
 
   // read the current page aloud (unless Silent Mode)
   useEffect(() => {
     let cancelled = false;
     const req = ++reqRef.current;
     stopPcm();
-    if (silent) {
+    if (silent || !story || !pg) {
       setReading(false);
       return;
     }
@@ -87,7 +109,7 @@ export default function Reader() {
         await ModelManager.ensureTTS("en");
         const ttsId = ModelManager.ttsId();
         if (!ttsId || cancelled || req !== reqRef.current) return;
-        const buf = await textToSpeech({ modelId: ttsId, text: readerPageText(pg, S.vocab), inputType: "text", stream: false }).buffer;
+        const buf = await textToSpeech({ modelId: ttsId, text: readerPageText(pg, story.vocab), inputType: "text", stream: false }).buffer;
         if (cancelled || req !== reqRef.current) return;
         await playPcm(buf, TTS_SAMPLE_RATE);
       } catch {
@@ -99,7 +121,7 @@ export default function Reader() {
     return () => {
       cancelled = true;
     };
-  }, [page, silent, pg, S.vocab]);
+  }, [page, silent, pg, story]);
 
   useEffect(() => () => stopPcm(), []);
 
@@ -115,6 +137,15 @@ export default function Reader() {
     }
   }, []);
 
+  if (!story || !pg) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.paper, alignItems: "center", justifyContent: "center" }}>
+        <Mosaic kind="facets" w={1180} h={820} cols={11} rows={8} jitter={0.5} palette="sky" seed={21} opacity={0.5} style={{ position: "absolute", inset: 0 }} />
+        <Text style={{ fontFamily: F.displayItalic, fontSize: 28, color: C.accentD }}>Opening the storybook…</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: C.paperDeep }}>
       <Mosaic kind="facets" w={1180} h={820} cols={11} rows={8} jitter={0.5} palette={pg.mood} seed={pg.n * 13 + 7} opacity={0.9} style={{ position: "absolute", inset: 0 }} />
@@ -123,7 +154,7 @@ export default function Reader() {
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 22, paddingHorizontal: 26, paddingBottom: 6 }}>
         <Circ icon="back" label="Home" onPress={() => router.back()} />
         <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 27, color: C.ink }} numberOfLines={1}>
-          {S.title}
+          {story.title}
         </Text>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <MuteButton silent={silent} onToggle={() => setSilent((s) => !s)} compact />
@@ -152,14 +183,14 @@ export default function Reader() {
         <Card style={{ flex: 1, margin: 8, padding: 42 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <Pill icon="grid" iconColor={C.accent} style={{ backgroundColor: C.cardInset }}>
-              {S.theme}
+              {story.theme}
             </Pill>
             <Text style={{ fontFamily: F.display, fontSize: 22, color: C.inkFaint }}>
-              {pg.n} / {S.pages.length}
+              {pg.n} / {story.pages.length}
             </Text>
           </View>
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}>
-            <StoryText page={pg} vocab={S.vocab} onWord={setWord} />
+            <StoryText page={pg} vocab={story.vocab} onWord={setWord} />
           </ScrollView>
           {silent ? (
             <Pill icon="headphones" iconColor={C.accent} color={C.accent} style={{ alignSelf: "flex-start", marginTop: 10 }}>
@@ -175,7 +206,7 @@ export default function Reader() {
           <Btn variant="secondary" icon="back" title="Back" onPress={() => setPage((p) => Math.max(0, p - 1))} />
         </View>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-          {S.pages.map((_, i) => (
+          {story.pages.map((_, i) => (
             <Pressable key={i} onPress={() => setPage(i)} style={{ width: i === page ? 26 : 9, height: 9, borderRadius: 999, backgroundColor: i === page ? C.accent : C.hairline2 }} />
           ))}
         </View>
@@ -186,7 +217,7 @@ export default function Reader() {
         )}
       </View>
 
-      {word ? <VocabCard wordKey={word} vocab={S.vocab} onClose={() => setWord(null)} silent={silent} onHear={hearWord} /> : null}
+      {word ? <VocabCard wordKey={word} vocab={story.vocab} onClose={() => setWord(null)} silent={silent} onHear={hearWord} /> : null}
     </View>
   );
 }
