@@ -8,6 +8,7 @@ import http from "bare-http1";
 import fs from "bare-fs";
 import path from "bare-path";
 import { loadEngines, generateStoryPack } from "./generate.mjs";
+import { publishPack } from "./seeder.mjs";
 
 const PORT = 3000;
 fs.mkdirSync("studio/packs", { recursive: true });
@@ -40,9 +41,15 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && url === "/api/packs") {
     let ids = [];
     try { ids = fs.readdirSync("studio/packs").filter((d) => fs.existsSync(`studio/packs/${d}/storypack.json`)); } catch {}
-    const packs = ids.map((id) => {
+    const metas = ids.map((id) => {
       try { return JSON.parse(fs.readFileSync(`studio/packs/${id}/storypack.json`)); } catch { return null; }
-    }).filter(Boolean).map((p) => ({ id: p.id, title: p.title, pages: p.pages.length }));
+    }).filter(Boolean);
+    const packs = [];
+    for (const p of metas) {
+      let pairKey = null;
+      try { pairKey = (await publishPack(p.id)).keyHex; } catch {}
+      packs.push({ id: p.id, title: p.title, pages: p.pages.length, pairKey });
+    }
     return send(res, 200, "application/json", JSON.stringify(packs));
   }
 
@@ -68,7 +75,10 @@ const server = http.createServer(async (req, res) => {
     const emit = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
     try {
       const pack = await generateStoryPack(reqBody, (label, step, total) => emit({ label, step, total }));
-      emit({ done: true, pack });
+      emit({ label: "seeding over P2P…", step: 0, total: 0 });
+      let pairKey = null;
+      try { pairKey = (await publishPack(pack.id)).keyHex; } catch (e) { console.log("seed error:", e); }
+      emit({ done: true, pack, pairKey });
     } catch (e) {
       emit({ error: String(e?.message ?? e) });
     }
@@ -113,6 +123,10 @@ button.go:disabled{opacity:.5}
 .pg p{font-size:14px;line-height:1.5;margin:0;padding:12px 14px;color:var(--ink)}
 .ok{display:inline-flex;gap:8px;align-items:center;color:#2f8a63;font-family:var(--display);font-size:22px;font-weight:600;margin-top:16px}
 .muted{color:var(--inkFaint);font-size:14px}
+.pair{margin-top:16px;background:var(--cardInset);border-radius:14px;padding:14px 16px}
+.pair .lbl{font-size:14px;color:var(--inkSoft)}
+.code{display:block;font-family:ui-monospace,Menlo,monospace;font-size:14px;word-break:break-all;margin-top:6px;color:var(--accentD);user-select:all;cursor:text}
+.tcode{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--inkFaint);word-break:break-all;user-select:all}
 </style></head><body><div class="wrap">
 <div style="display:flex;justify-content:space-between;align-items:flex-end">
   <div><h1>Tale<span class="t">Trip</span> · <span style="font-size:32px">Parent Studio</span></h1>
@@ -145,7 +159,7 @@ async function loadPacks(){
   const r=await fetch('/api/packs');const ps=await r.json();
   const box=document.getElementById('packs');clear(box);
   if(!ps.length){box.appendChild(el('span',{class:'muted',text:'none yet — generate your first one above'}));return;}
-  for(const p of ps){const d=el('div');d.appendChild(document.createTextNode('📖 '));d.appendChild(el('b',{text:p.title}));d.appendChild(document.createTextNode(' · '+(p.pages|0)+' pages'));box.appendChild(d);}
+  for(const p of ps){const d=el('div',{style:'margin-bottom:10px'});const h=el('div');h.appendChild(document.createTextNode('📖 '));h.appendChild(el('b',{text:p.title}));h.appendChild(document.createTextNode(' · '+(p.pages|0)+' pages'));d.appendChild(h);if(p.pairKey)d.appendChild(el('div',{class:'tcode',text:'code: '+p.pairKey}));box.appendChild(d);}
 }
 loadPacks();
 
@@ -161,13 +175,13 @@ document.getElementById('go').onclick=async()=>{
       const ev=JSON.parse(line);
       if(ev.label){document.getElementById('plabel').textContent=ev.label;if(ev.total)document.getElementById('pbar').style.width=Math.round(ev.step/ev.total*100)+'%';}
       if(ev.error){document.getElementById('plabel').textContent='⚠️ '+ev.error;}
-      if(ev.done){renderBook(ev.pack);prog.style.display='none';loadPacks();}
+      if(ev.done){renderBook(ev.pack,ev.pairKey);prog.style.display='none';loadPacks();}
     }}
   go.disabled=false;
 };
-function renderBook(pack){
+function renderBook(pack,pairKey){
   const result=document.getElementById('result');clear(result);
-  result.appendChild(el('div',{class:'ok',text:'✓ '+pack.title+' is ready — send to the kid\\'s iPad'}));
+  result.appendChild(el('div',{class:'ok',text:'✓ '+pack.title+' is ready'}));
   const book=el('div',{class:'book'});
   const idOk=/^[a-z0-9-]+$/.test(pack.id);
   for(const p of pack.pages){
@@ -178,6 +192,12 @@ function renderBook(pack){
   }
   result.appendChild(book);
   result.appendChild(el('div',{class:'muted',text:pack.vocab.length+' Spanish words · reads aloud on-device · '+pack.pages.length+' illustrations painted on this Mac'}));
+  if(pairKey){
+    const box=el('div',{class:'pair'});
+    box.appendChild(el('div',{class:'lbl',text:'📡 Pairing code — on the kid\\'s iPad, open “Get a book”, paste this, tap Receive (same WiFi, P2P, no cloud):'}));
+    box.appendChild(el('code',{class:'code',text:pairKey}));
+    result.appendChild(box);
+  }
 }
 </script>
 </div></body></html>`;
