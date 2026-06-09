@@ -1,0 +1,109 @@
+// studio/generate.mjs
+// Parent Studio generation pipeline (reusable) — LLM narration + SD illustrations
+// -> StoryPack. Engines are loaded ONCE and kept resident (Mac is unconstrained),
+// so the long-lived server reuses them across requests (and avoids worker-lock churn).
+import fs from "bare-fs";
+import { plugins, LLAMA_3_2_1B_INST_Q4_0, SD_V2_1_1B_Q4_0 } from "@qvac/sdk";
+import { llmPlugin } from "@qvac/sdk/llamacpp-completion/plugin";
+import { diffusionPlugin } from "@qvac/sdk/sdcpp-generation/plugin";
+
+const sdk = plugins([llmPlugin, diffusionPlugin]);
+
+let enginesPromise = null;
+export function loadEngines(onProgress = () => {}) {
+  if (!enginesPromise) {
+    enginesPromise = (async () => {
+      onProgress("warming up the storyteller (LLM)…");
+      const llm = await sdk.loadModel({ modelSrc: LLAMA_3_2_1B_INST_Q4_0, modelType: "llm" });
+      onProgress("warming up the illustrator (Stable Diffusion)…");
+      const sd = await sdk.loadModel({ modelSrc: SD_V2_1_1B_Q4_0 });
+      return { llm, sd };
+    })();
+  }
+  return enginesPromise;
+}
+
+const sceneArc = (dest) => [
+  `arriving in ${dest}: a sunny morning walk through a lively square full of color`,
+  `a famous landmark in ${dest} with tall towers reaching into a bright blue sky`,
+  `a green park in ${dest} with a tree, birds, and a sparkling fountain`,
+  `a sunny beach near ${dest} with gentle blue waves and a small white sailboat`,
+  `sunset over ${dest} as warm yellow lights turn on across the city`,
+];
+
+const VOCAB = {
+  square: "la plaza", color: "el color", tower: "la torre", sky: "el cielo",
+  park: "el parque", tree: "el árbol", bird: "el pájaro", fountain: "la fuente",
+  beach: "la playa", wave: "la ola", boat: "el barco", sun: "el sol",
+  sunset: "el atardecer", light: "la luz", city: "la ciudad", morning: "la mañana",
+};
+
+const STYLE = "children's storybook illustration, soft watercolor, warm Mediterranean colors, gentle, cute";
+const NEG = "blurry, deformed, extra limbs, ugly, text, watermark, scary";
+const DENY = /\b(kill|blood|gun|die|dead|scary|hate|weapon)\b/i;
+
+function narrationMessages(scene, childName, dest) {
+  return [
+    { role: "system", content: "Write one short storybook page for a 5-year-old: 2-3 simple, gentle sentences. Use the child's name. Keep it about the given scene. No scary content." },
+    { role: "user", content: `Child: ${childName}. Place: ${dest}. Scene: ${scene}.` },
+  ];
+}
+function pickVocab(text) {
+  const lower = text.toLowerCase();
+  const out = [];
+  for (const [en, es] of Object.entries(VOCAB)) {
+    if (out.length >= 3) break;
+    if (new RegExp(`\\b${en}s?\\b`).test(lower)) out.push({ word: en, translation: es, say: es });
+  }
+  return out;
+}
+
+export async function generateStoryPack(req, onProgress = () => {}) {
+  const destination = (req.destination || "Lisbon").trim();
+  const childName = (req.childName || "Mia").trim();
+  const vocabLang = req.vocabLang || "es";
+  const nPages = Math.max(1, Math.min(5, Number(req.pages) || 5));
+
+  const { llm, sd } = await loadEngines(onProgress);
+  const scenes = sceneArc(destination).slice(0, nPages);
+  const total = scenes.length * 2;
+  let step = 0;
+
+  // Phase 1: LLM narration
+  const pages = [];
+  const vocabAll = {};
+  for (let i = 0; i < scenes.length; i++) {
+    onProgress(`writing page ${i + 1} of ${scenes.length}…`, ++step, total);
+    const r = sdk.completion({ modelId: llm, history: narrationMessages(scenes[i], childName, destination), stream: false });
+    let text = (await r.text).trim().split("\n").filter(Boolean)[0] ?? "";
+    if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `${childName} enjoys ${scenes[i]}.`;
+    for (const v of pickVocab(text)) vocabAll[v.word] = v;
+    pages.push({ index: i, image: `p${i}.png`, scene: scenes[i], authoredNarration: text, slots: [] });
+  }
+
+  // Phase 2: SD illustrations
+  const id = `${destination.toLowerCase().replace(/\s+/g, "-")}-${childName.toLowerCase().replace(/\s+/g, "-")}`;
+  const outDir = `studio/packs/${id}`;
+  fs.mkdirSync(outDir, { recursive: true });
+  for (let i = 0; i < pages.length; i++) {
+    onProgress(`painting page ${i + 1} of ${pages.length}…`, ++step, total);
+    const { progressStream, outputs } = sdk.diffusion({
+      modelId: sd, prompt: `${pages[i].scene}, ${STYLE}`, negative_prompt: NEG,
+      width: 512, height: 512, steps: 22, cfg_scale: 7, seed: 40 + i * 7,
+    });
+    for await (const _ of progressStream) { /* drain */ }
+    const bufs = await outputs;
+    if (bufs?.[0]) fs.writeFileSync(`${outDir}/p${i}.png`, bufs[0]);
+  }
+
+  // Phase 3: pack
+  const pack = {
+    id, version: 1, checksum: "sha256:dev",
+    title: `${childName}'s trip to ${destination}`,
+    narrationLang: "en", vocabLang, ageRange: [4, 7],
+    pages, vocab: Object.values(vocabAll), huntTargets: ["tree", "tower", "boat"],
+  };
+  fs.writeFileSync(`${outDir}/storypack.json`, JSON.stringify(pack, null, 2));
+  onProgress("done", total, total);
+  return pack;
+}
