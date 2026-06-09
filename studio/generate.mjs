@@ -3,7 +3,13 @@
 // -> StoryPack. Engines are loaded ONCE and kept resident (Mac is unconstrained),
 // so the long-lived server reuses them across requests (and avoids worker-lock churn).
 import fs from "bare-fs";
+import path from "bare-path";
 import { plugins, LLAMA_3_2_1B_INST_Q4_0, SD_V2_1_1B_Q4_0 } from "@qvac/sdk";
+
+fs.mkdirSync("studio/packs", { recursive: true });
+const PACKS_ROOT = fs.realpathSync("studio/packs");
+// slug user input down to a safe filename component (no path separators / traversal)
+const safeSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
 import { llmPlugin } from "@qvac/sdk/llamacpp-completion/plugin";
 import { diffusionPlugin } from "@qvac/sdk/sdcpp-generation/plugin";
 
@@ -82,8 +88,9 @@ export async function generateStoryPack(req, onProgress = () => {}) {
   }
 
   // Phase 2: SD illustrations
-  const id = `${destination.toLowerCase().replace(/\s+/g, "-")}-${childName.toLowerCase().replace(/\s+/g, "-")}`;
-  const outDir = `studio/packs/${id}`;
+  const id = `${safeSlug(destination)}-${safeSlug(childName)}`;
+  const outDir = path.resolve(PACKS_ROOT, id);
+  if (outDir !== PACKS_ROOT && !outDir.startsWith(PACKS_ROOT + path.sep)) throw new Error("bad pack id");
   fs.mkdirSync(outDir, { recursive: true });
   for (let i = 0; i < pages.length; i++) {
     onProgress(`painting page ${i + 1} of ${pages.length}…`, ++step, total);

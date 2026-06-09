@@ -139,9 +139,13 @@ const DESTS=["Lisbon","Barcelona","Tokyo","Rome","Paris","Marrakesh"];
 const chips=document.getElementById('chips');
 DESTS.forEach(d=>{const b=document.createElement('button');b.className='chip';b.textContent=d;b.onclick=()=>document.getElementById('dest').value=d;chips.appendChild(b)});
 
+function el(tag,props,...kids){const e=document.createElement(tag);if(props)for(const k in props){if(k==='class')e.className=props[k];else if(k==='text')e.textContent=props[k];else e.setAttribute(k,props[k]);}for(const c of kids)if(c)e.appendChild(c);return e;}
+function clear(n){while(n.firstChild)n.removeChild(n.firstChild);}
 async function loadPacks(){
   const r=await fetch('/api/packs');const ps=await r.json();
-  document.getElementById('packs').innerHTML = ps.length? ps.map(p=>'<div>📖 <b>'+p.title+'</b> · '+p.pages+' pages</div>').join('') : '<span class="muted">none yet — generate your first one above</span>';
+  const box=document.getElementById('packs');clear(box);
+  if(!ps.length){box.appendChild(el('span',{class:'muted',text:'none yet — generate your first one above'}));return;}
+  for(const p of ps){const d=el('div');d.appendChild(document.createTextNode('📖 '));d.appendChild(el('b',{text:p.title}));d.appendChild(document.createTextNode(' · '+(p.pages|0)+' pages'));box.appendChild(d);}
 }
 loadPacks();
 
@@ -149,7 +153,7 @@ document.getElementById('go').onclick=async()=>{
   const dest=document.getElementById('dest').value, name=document.getElementById('name').value, lang=document.getElementById('lang').value;
   const go=document.getElementById('go');go.disabled=true;
   const prog=document.getElementById('prog');prog.style.display='block';
-  const result=document.getElementById('result');result.innerHTML='';
+  const result=document.getElementById('result');clear(result);
   const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination:dest,childName:name,vocabLang:lang})});
   const reader=res.body.getReader();const dec=new TextDecoder();let buf='';
   while(true){const {done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});
@@ -162,10 +166,18 @@ document.getElementById('go').onclick=async()=>{
   go.disabled=false;
 };
 function renderBook(pack){
-  const result=document.getElementById('result');
-  result.innerHTML='<div class="ok">✓ '+pack.title+' is ready — send to the kid\\'s iPad</div>'
-    +'<div class="book">'+pack.pages.map(p=>'<div class="pg"><img src="/packs/'+pack.id+'/'+p.image+'"/><p>'+p.authoredNarration+'</p></div>').join('')+'</div>'
-    +'<div class="muted" style="margin-top:10px">'+pack.vocab.length+' Spanish words · reads aloud on-device · '+pack.pages.length+' illustrations painted on this Mac</div>';
+  const result=document.getElementById('result');clear(result);
+  result.appendChild(el('div',{class:'ok',text:'✓ '+pack.title+' is ready — send to the kid\\'s iPad'}));
+  const book=el('div',{class:'book'});
+  const idOk=/^[a-z0-9-]+$/.test(pack.id);
+  for(const p of pack.pages){
+    const card=el('div',{class:'pg'});
+    if(idOk&&/^p\\d+\\.png$/.test(p.image)){const img=el('img');img.src='/packs/'+pack.id+'/'+p.image;card.appendChild(img);}
+    card.appendChild(el('p',{text:p.authoredNarration}));
+    book.appendChild(card);
+  }
+  result.appendChild(book);
+  result.appendChild(el('div',{class:'muted',text:pack.vocab.length+' Spanish words · reads aloud on-device · '+pack.pages.length+' illustrations painted on this Mac'}));
 }
 </script>
 </div></body></html>`;
