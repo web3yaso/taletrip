@@ -14,6 +14,10 @@
 - **配对模型有现成的两种**：① `startQVACProvider` 的"连公钥 + firewall 白名单"；② Hyperswarm `swarm.join(topic)` 的主题发现。配对码 = 公钥/主题 key（可编码成短码或二维码）。
 - **首次同步后 iPad 自治**：书落进 iPad 本地 documents，之后飞行模式离线翻看，符合产品隐私主张。
 
+> **✅ 验证进度（2026-06-09）· Spike-0a（Mac）通过**：`studio/p2p-spike-local.mjs` 用本地 DHT testnet 在 Bare 上跑通了完整链路——Hyperswarm 发现 → 连接 → Hyperdrive 复制（json 元数据 + PNG blob 都正确到达消费端）。证明该 P2P 栈在 Bare 下可用、publish/sync 代码逻辑正确。
+> 注：用 testnet 是因为**同机走公网 DHT 的 holepunch 是已知假阴性**（连不到同 IP 的"自己"），不代表 Mac↔iPad（不同主机）连不通。生产 publish/consume 脚本见 `studio/p2p-publish.mjs` / `p2p-consume.mjs`。
+> **剩余唯一硬不确定性 → Spike-0b（iPad）**：iPad 的嵌入式 Bare worker 能否同样 `swarm.join` + replicate（需改 worker entry + 重打 + 真机，且跨主机 DHT 真网络）。
+
 ---
 
 ## 1. 现成的 P2P 积木（已在 node_modules，无需新依赖）
