@@ -18,6 +18,14 @@
 > 注：用 testnet 是因为**同机走公网 DHT 的 holepunch 是已知假阴性**（连不到同 IP 的"自己"），不代表 Mac↔iPad（不同主机）连不通。生产 publish/consume 脚本见 `studio/p2p-publish.mjs` / `p2p-consume.mjs`。
 > **剩余唯一硬不确定性 → Spike-0b（iPad）**：iPad 的嵌入式 Bare worker 能否同样 `swarm.join` + replicate（需改 worker entry + 重打 + 真机，且跨主机 DHT 真网络）。
 
+> **🎯 重大简化（2026-06-09 续调研）**：iPad 侧**根本不用自定义 plugin / worklet / 改 bundle / 重建**！SDK 公开 API **`downloadAsset({ assetSrc: "pear://<64hex-key>/<file>", onProgress })`** 就是 QVAC 下模型用的同一套 Hyperdrive P2P，能下任意文件。
+> - `pear://` 由 `resolve.js` 解析（`load-model.js` 的 `hyperdriveUrlSchema`，格式 `pear://<64位hex>/<path>`）→ `downloadModelFromHyperdrive(key, path, seed)`。
+> - registry-client 用 `new Hyperswarm()`**无自定义 bootstrap = 默认公网 Holepunch DHT**；Mac 的 seeder 也是 `new Hyperswarm()` 默认公网 → **同一 DHT，跨主机可发现**。
+> - 所以 Spike-0b 变成：**Mac seed 一个 hyperdrive（Spike-0a 已证），iPad 调现成 `downloadAsset`（纯 JS，reload 即可）**。`QvacPlugin` 是模型中心的、不适合塞 P2P——已排除自定义 plugin 路线。
+> - 可选增强 `swarmRelays`（盲中继，改善 NAT 穿透）见 sdk-config。
+
+> **✅✅ Spike-0b 通过（2026-06-09，真机）**：Mac `studio/p2p-seed.mjs` 把真实 lisbon-mia 这本书 seed 进 hyperdrive（公网 DHT），iPad 上一个临时 P2P 屏（`src/app/p2p.tsx`，纯 JS，仅 reload 无重建）调 `downloadAsset({ assetSrc:"pear://<key>/storypack.json" })` —— **跨 WiFi、跨主机成功拉到文件**。整条 P2P 交付链路实测打通，iPad 侧零自定义代码/零 bundle 改动/零额外重建。剩下的全是实现工作（不是验证）。
+
 ---
 
 ## 1. 现成的 P2P 积木（已在 node_modules，无需新依赖）

@@ -27,6 +27,9 @@ export default function AppTabs() {
           <TabTrigger name="reader" href="/reader" asChild>
             <TabButton>Reader</TabButton>
           </TabTrigger>
+          <TabTrigger name="p2p" href="/p2p" asChild>
+            <TabButton>P2P</TabButton>
+          </TabTrigger>
         </CustomTabList>
       </TabList>
     </Tabs>
