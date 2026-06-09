@@ -1,41 +1,33 @@
 // src/app/reader.tsx
-// TaleTrip Kid · Storybook Reader — faithful to the Claude Design mockup, wired
-// to on-device TTS: the page reads itself aloud (unless Silent Mode), and tapping
-// a colored word opens a Spanish flashcard you can hear. No cloud, fully offline.
+// TaleTrip Kid · Storybook Reader — renders a (Studio-generated) StoryPack:
+// real illustrations + tappable Spanish vocab + flashcard, with on-device TTS
+// read-aloud and word pronounce. Fully offline.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ModelManager } from "@/models/model-manager";
-import { textToSpeech } from "@/models/qvac";
-import { TTS_SAMPLE_RATE } from "@/models/qvac";
+import { textToSpeech, TTS_SAMPLE_RATE } from "@/models/qvac";
 import { playPcm, stopPcm } from "@/reading/audio-player";
-import { STORY, VOCAB, pageText, type StoryPage } from "@/storypack/barcelona";
+import { readerPageText, type ReaderPage, type ReaderStory, type ReaderVocab } from "@/storypack/adapter";
+import { LISBON_MIA } from "@/storypack/packs/lisbon-mia";
 import { Btn, Card, Circ, MuteButton, Pill } from "@/ui/chrome";
 import { Icon } from "@/ui/icon";
 import { Mosaic } from "@/ui/mosaic";
 import { C, F, SHADOW } from "@/ui/tokens";
 
-// food words get a terracotta tint, everything else a blue tint (design rule)
-function vocabTint(key: string, strong = false): string {
-  const food = VOCAB[key]?.tag === "food";
-  const base = food ? C.terracotta : C.blue;
-  return base + (strong ? "55" : "33"); // ~34% / ~20% alpha
-}
+// the active book (Studio output; later this comes from a selected/delivered pack)
+const STORYBOOK: ReaderStory = LISBON_MIA;
 
-function StoryText({ page, onWord }: { page: StoryPage; onWord: (k: string) => void }) {
+function StoryText({ page, vocab, onWord }: { page: ReaderPage; vocab: ReaderVocab; onWord: (k: string) => void }) {
   return (
     <Text style={{ fontFamily: F.body, fontSize: 30, lineHeight: 49, color: C.ink }}>
       {page.parts.map((p, i) =>
         "t" in p ? (
           <Text key={i}>{p.t}</Text>
         ) : (
-          <Text
-            key={i}
-            onPress={() => onWord(p.v)}
-            style={{ color: C.ink, backgroundColor: vocabTint(p.v), borderRadius: 8 }}
-          >
+          <Text key={i} onPress={() => onWord(p.v)} style={{ color: C.ink, backgroundColor: C.blue + "33", borderRadius: 8 }}>
             {" "}
-            {VOCAB[p.v]?.en ?? p.v}{" "}
+            {vocab[p.v]?.en ?? p.v}{" "}
           </Text>
         ),
       )}
@@ -43,14 +35,11 @@ function StoryText({ page, onWord }: { page: StoryPage; onWord: (k: string) => v
   );
 }
 
-function VocabCard({ wordKey, onClose, silent, onHear }: { wordKey: string; onClose: () => void; silent: boolean; onHear: (es: string) => void }) {
-  const entry = VOCAB[wordKey];
+function VocabCard({ wordKey, vocab, onClose, silent, onHear }: { wordKey: string; vocab: ReaderVocab; onClose: () => void; silent: boolean; onHear: (es: string) => void }) {
+  const entry = vocab[wordKey];
   if (!entry) return null;
   return (
-    <Pressable
-      onPress={onClose}
-      style={{ position: "absolute", inset: 0, zIndex: 30, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(28,42,56,0.42)" }}
-    >
+    <Pressable onPress={onClose} style={{ position: "absolute", inset: 0, zIndex: 30, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(28,42,56,0.42)" }}>
       <Pressable onPress={() => {}} style={{ width: 460, borderRadius: 26, overflow: "hidden", backgroundColor: C.card, boxShadow: SHADOW.pop }}>
         <View style={{ height: 150 }}>
           <Mosaic kind="trencadis" w={460} h={150} tile={26} gap={3} palette="mixed" seed={wordKey.length * 11 + 5} style={{ position: "absolute", inset: 0 }} />
@@ -61,16 +50,9 @@ function VocabCard({ wordKey, onClose, silent, onHear }: { wordKey: string; onCl
           <Text style={{ fontFamily: F.display, fontSize: 40, fontWeight: "600", color: C.ink }}>{entry.en}</Text>
           <View style={{ width: 60, borderTopWidth: 2, borderColor: C.hairline2, borderStyle: "dotted", marginVertical: 16 }} />
           <Text style={{ fontFamily: F.body, fontSize: 16, letterSpacing: 2, color: C.accent, textTransform: "uppercase" }}>Español</Text>
-          <Text style={{ fontFamily: F.displayBold ?? F.display, fontSize: 46, fontWeight: "700", color: C.accentD }}>{entry.es}</Text>
+          <Text style={{ fontFamily: F.displayBold, fontSize: 46, fontWeight: "700", color: C.accentD }}>{entry.es}</Text>
           <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
-            <Btn
-              variant="secondary"
-              fontSize={20}
-              icon={silent ? "mute" : "audio"}
-              title={silent ? "Muted" : "Hear it"}
-              onPress={() => !silent && onHear(entry.es)}
-              style={{ opacity: silent ? 0.5 : 1, paddingVertical: 13, paddingHorizontal: 20 }}
-            />
+            <Btn variant="secondary" fontSize={20} icon={silent ? "mute" : "audio"} title={silent ? "Muted" : "Hear it"} onPress={() => !silent && onHear(entry.es)} style={{ opacity: silent ? 0.5 : 1, paddingVertical: 13, paddingHorizontal: 20 }} />
             <Btn variant="primary" fontSize={20} icon="check" title="Got it" onPress={onClose} style={{ paddingVertical: 13, paddingHorizontal: 22 }} />
           </View>
         </View>
@@ -81,16 +63,16 @@ function VocabCard({ wordKey, onClose, silent, onHear }: { wordKey: string; onCl
 
 export default function Reader() {
   const router = useRouter();
-  const S = STORY;
+  const S = STORYBOOK;
   const [page, setPage] = useState(0);
   const [word, setWord] = useState<string | null>(null);
   const [silent, setSilent] = useState(false);
   const [reading, setReading] = useState(false);
-  const reqRef = useRef(0); // cancels stale synth when the page changes
+  const reqRef = useRef(0);
   const pg = S.pages[page];
   const last = S.pages.length - 1;
 
-  // Read the current page aloud (unless Silent Mode). Re-runs on page change.
+  // read the current page aloud (unless Silent Mode)
   useEffect(() => {
     let cancelled = false;
     const req = ++reqRef.current;
@@ -105,11 +87,11 @@ export default function Reader() {
         await ModelManager.ensureTTS("en");
         const ttsId = ModelManager.ttsId();
         if (!ttsId || cancelled || req !== reqRef.current) return;
-        const buf = await textToSpeech({ modelId: ttsId, text: pageText(pg), inputType: "text", stream: false }).buffer;
+        const buf = await textToSpeech({ modelId: ttsId, text: readerPageText(pg, S.vocab), inputType: "text", stream: false }).buffer;
         if (cancelled || req !== reqRef.current) return;
         await playPcm(buf, TTS_SAMPLE_RATE);
       } catch {
-        /* offline read-aloud is best-effort */
+        /* best-effort */
       } finally {
         if (!cancelled && req === reqRef.current) setReading(false);
       }
@@ -117,7 +99,7 @@ export default function Reader() {
     return () => {
       cancelled = true;
     };
-  }, [page, silent, pg]);
+  }, [page, silent, pg, S.vocab]);
 
   useEffect(() => () => stopPcm(), []);
 
@@ -150,10 +132,11 @@ export default function Reader() {
       </View>
 
       {/* book spread */}
-      <View style={{ flex: 1, flexDirection: "row", paddingHorizontal: 30, paddingTop: 6, paddingBottom: 18, gap: 0 }}>
+      <View style={{ flex: 1, flexDirection: "row", paddingHorizontal: 30, paddingTop: 6, paddingBottom: 18 }}>
         {/* left: illustration */}
         <Card style={{ flex: 1, margin: 8, overflow: "hidden" }}>
           <Mosaic kind="facets" w={520} h={620} cols={6} rows={8} jitter={0.55} palette={pg.mood} seed={pg.n * 31 + 3} style={{ position: "absolute", inset: 0 }} />
+          {pg.image ? <Image source={pg.image} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} resizeMode="cover" /> : null}
           <View style={{ position: "absolute", left: 16, bottom: 14, backgroundColor: "rgba(40,55,70,0.55)", borderRadius: 999, paddingVertical: 4, paddingHorizontal: 12 }}>
             <Text style={{ fontFamily: F.body, fontSize: 14, color: "#fff" }}>Tap colored words to learn Spanish</Text>
           </View>
@@ -176,7 +159,7 @@ export default function Reader() {
             </Text>
           </View>
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}>
-            <StoryText page={pg} onWord={setWord} />
+            <StoryText page={pg} vocab={S.vocab} onWord={setWord} />
           </ScrollView>
           {silent ? (
             <Pill icon="headphones" iconColor={C.accent} color={C.accent} style={{ alignSelf: "flex-start", marginTop: 10 }}>
@@ -193,11 +176,7 @@ export default function Reader() {
         </View>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
           {S.pages.map((_, i) => (
-            <Pressable
-              key={i}
-              onPress={() => setPage(i)}
-              style={{ width: i === page ? 26 : 9, height: 9, borderRadius: 999, backgroundColor: i === page ? C.accent : C.hairline2 }}
-            />
+            <Pressable key={i} onPress={() => setPage(i)} style={{ width: i === page ? 26 : 9, height: 9, borderRadius: 999, backgroundColor: i === page ? C.accent : C.hairline2 }} />
           ))}
         </View>
         {page < last ? (
@@ -207,7 +186,7 @@ export default function Reader() {
         )}
       </View>
 
-      {word ? <VocabCard wordKey={word} onClose={() => setWord(null)} silent={silent} onHear={hearWord} /> : null}
+      {word ? <VocabCard wordKey={word} vocab={S.vocab} onClose={() => setWord(null)} silent={silent} onHear={hearWord} /> : null}
     </View>
   );
 }

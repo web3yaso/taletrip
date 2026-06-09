@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+studio/packs/
+scripts/sample-*.png
+scripts/mac-sd-out.png

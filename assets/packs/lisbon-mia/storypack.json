@@ -1,0 +1,111 @@
+{
+  "id": "lisbon-mia",
+  "version": 1,
+  "checksum": "sha256:dev",
+  "title": "Mia's trip to Lisbon",
+  "narrationLang": "en",
+  "vocabLang": "es",
+  "ageRange": [
+    4,
+    7
+  ],
+  "pages": [
+    {
+      "index": 0,
+      "image": "p0.png",
+      "scene": "arriving in Lisbon: a sunny morning walk through a lively square full of color",
+      "authoredNarration": "Mia walked with her mom in the Largo do Nossa Senhora, a big square in Lisbon. The sun shone bright and colorful flowers and trees sparkled around them. People dressed in bright clothes waved and smiled as they walked by, saying \"Bom dia, Mia!\"",
+      "slots": []
+    },
+    {
+      "index": 1,
+      "image": "p1.png",
+      "scene": "a famous landmark in Lisbon with tall towers reaching into a bright blue sky",
+      "authoredNarration": "Mia stood at the top of the famous tower called Belem Tower, her feet on the cool stone steps. The bright blue sky was filled with big, fluffy clouds that looked just like cotton candy. A big, beautiful church called Belem was perched on the tower, its tall spires reaching up towards the sky.",
+      "slots": []
+    },
+    {
+      "index": 2,
+      "image": "p2.png",
+      "scene": "a green park in Lisbon with a tree, birds, and a sparkling fountain",
+      "authoredNarration": "Mia played outside in her favorite green park in Lisbon. She sat under a big tree and watched the birds sing their happy songs. The sparkling fountain showed her a tiny fish swimming in its special water.",
+      "slots": []
+    },
+    {
+      "index": 3,
+      "image": "p3.png",
+      "scene": "a sunny beach near Lisbon with gentle blue waves and a small white sailboat",
+      "authoredNarration": "Mia was playing on the beach in Lisbon, feeling the warm sand between her toes. She ran to the water, running her hands in the cool waves, and then jumped in, splashing in the water. Mia saw a tiny white sailboat floating on the waves, and she waved at it with her hand.",
+      "slots": []
+    },
+    {
+      "index": 4,
+      "image": "p4.png",
+      "scene": "sunset over Lisbon as warm yellow lights turn on across the city",
+      "authoredNarration": "Mia was so happy in Lisbon. As the sun went down, big yellow lights twinkled and turned on. She ran to the window and watched the lights shine bright across the city.",
+      "slots": []
+    }
+  ],
+  "vocab": [
+    {
+      "word": "square",
+      "translation": "la plaza",
+      "say": "la plaza"
+    },
+    {
+      "word": "tree",
+      "translation": "el árbol",
+      "say": "el árbol"
+    },
+    {
+      "word": "sun",
+      "translation": "el sol",
+      "say": "el sol"
+    },
+    {
+      "word": "tower",
+      "translation": "la torre",
+      "say": "la torre"
+    },
+    {
+      "word": "sky",
+      "translation": "el cielo",
+      "say": "el cielo"
+    },
+    {
+      "word": "park",
+      "translation": "el parque",
+      "say": "el parque"
+    },
+    {
+      "word": "bird",
+      "translation": "el pájaro",
+      "say": "el pájaro"
+    },
+    {
+      "word": "beach",
+      "translation": "la playa",
+      "say": "la playa"
+    },
+    {
+      "word": "wave",
+      "translation": "la ola",
+      "say": "la ola"
+    },
+    {
+      "word": "light",
+      "translation": "la luz",
+      "say": "la luz"
+    },
+    {
+      "word": "city",
+      "translation": "la ciudad",
+      "say": "la ciudad"
+    }
+  ],
+  "huntTargets": [
+    "tree",
+    "tower",
+    "boat"
+  ]
+}
