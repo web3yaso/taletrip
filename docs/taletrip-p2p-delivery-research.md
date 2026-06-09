@@ -42,7 +42,8 @@
 
 - ✅ `udx-native/prebuilds/` 含 **`ios-arm64`**、`ios-arm64-simulator`、`ios-x64-simulator` —— 传输层原生二进制 iOS 齐全。
 - ✅ iPad 已经在跑 Bare worker（`react-native-bare-kit` + 项目 `qvac/worker.bundle.js`），模型下载本身就走 P2P registry —— 说明 **iPad 的 worker 已经具备 P2P 联网能力**（否则模型都下不下来）。
-- ⚠️ **待验证**：StoryPack 用到的 `hyperdrive`/`hyperblobs` 是否已经打进了 iPad 的 `worker.bundle.js`（registry 用的是 hypercore+hyperblobs，hyperdrive 不一定在）。若不在，需要把交付逻辑加进 worker entry 重新 `bare-pack` 打包（见 §7）。
+- ✅ **已确认（2026-06-09）**：`qvac/worker.bundle.js`（10MB）里 P2P 全栈都在——`hyperswarm`×148、`hyperdrive`×162、`hyperblobs`×45、`hyperdht`×161、`corestore`×254、`udx`×192。**iPad 端不需要给 bundle 加模块。** worker entry 由 `@qvac/sdk/commands bundleSdk` 自动生成（注册 8 插件 + RPC）。
+- **iPad 侧两条实现路**：① 复用 QVAC worker 已有 P2P；② 更干净——用 `react-native-bare-kit` 跑一个**独立的"交付 worklet"**（自己打包 hyperswarm+hyperdrive），与推理 worker 解耦，经 RPC 把同步进度回传 RN UI。
 
 ---
 
