@@ -1,0 +1,190 @@
+// src/app/hunt.tsx
+// TaleTrip Kid · Picture Scavenger Hunt — point the camera at a target, snap, and
+// an on-device VLM (SmolVLM 500M) decides yes/no. Fully offline. Per-pack targets.
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Pressable, Text, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { File } from "expo-file-system";
+import Svg, { Circle } from "react-native-svg";
+import { ModelManager } from "@/models/model-manager";
+import { completion, huntPrompt } from "@/models/qvac";
+import { listPacks, loadPackRaw } from "@/storypack/store";
+import { Btn, MuteButton, Pill } from "@/ui/chrome";
+import { Icon } from "@/ui/icon";
+import { useMuted } from "@/reading/mute";
+import { C, F, SHADOW } from "@/ui/tokens";
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function ProgressRing({ found, total }: { found: number; total: number }) {
+  const r = 26, c = 2 * Math.PI * r;
+  const pct = total ? found / total : 0;
+  return (
+    <View style={{ width: 64, height: 64, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={64} height={64} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
+        <Circle cx={32} cy={32} r={r} stroke={C.cardInset} strokeWidth={6} fill="none" />
+        <Circle cx={32} cy={32} r={r} stroke={C.accent} strokeWidth={6} fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} />
+      </Svg>
+      <Text style={{ fontFamily: F.bodySemi, fontSize: 15, color: C.ink, fontVariant: ["tabular-nums"] }}>{found}/{total}</Text>
+    </View>
+  );
+}
+
+export default function Hunt() {
+  const [silent, toggleSilent] = useMuted();
+  const [perm, requestPerm] = useCameraPermissions();
+  const camRef = useRef<CameraView>(null);
+
+  const targets = useMemo<string[]>(() => {
+    for (const p of listPacks()) {
+      const raw = loadPackRaw(p.id);
+      if (raw?.huntTargets?.length) return raw.huntTargets;
+    }
+    return ["tree", "tower", "boat"];
+  }, []);
+
+  const [found, setFound] = useState<Set<string>>(new Set());
+  const [active, setActive] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("Loading the picture brain…");
+  const [ready, setReady] = useState(false);
+
+  // swap models into Hunt mode (VLM) when this tab is focused; release the VLM
+  // when leaving (NativeTabs keep screens mounted, so focus — not mount — is the
+  // right lifecycle to avoid the VLM lingering co-resident with reading models).
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      setReady(false);
+      setStatus("Loading the picture brain…");
+      (async () => {
+        try {
+          await ModelManager.enterHunt();
+          if (alive) { setReady(true); setStatus(`Find a ${targets[0]}!`); }
+        } catch {
+          if (alive) setStatus("Couldn't load the picture brain.");
+        }
+      })();
+      return () => {
+        alive = false;
+        ModelManager.leaveHunt().catch(() => {});
+      };
+    }, [targets])
+  );
+
+  const target = targets[active];
+  const allDone = found.size >= targets.length;
+
+  async function snap() {
+    if (busy || !ready || allDone) return;
+    setBusy(true);
+    setStatus(`Looking for a ${target}…`);
+    let photoUri: string | undefined;
+    try {
+      const photo = await camRef.current?.takePictureAsync({ quality: 0.5, skipProcessing: true });
+      if (!photo?.uri) throw new Error("no photo");
+      photoUri = photo.uri; // app-private cache file — never leaves the device
+      const vlm = ModelManager.vlmId();
+      if (!vlm) throw new Error("vlm not loaded");
+      const t0 = Date.now();
+      const run = completion({
+        modelId: vlm, stream: false,
+        history: [{ role: "user", content: huntPrompt(target), attachments: [{ path: photoUri.replace("file://", "") }] }],
+      });
+      const answer = (await run.text).toLowerCase();
+      const secs = ((Date.now() - t0) / 1000).toFixed(1);
+      if (/\byes\b/.test(answer)) {
+        const next = new Set(found); next.add(target); setFound(next);
+        const remaining = targets.findIndex((t) => !next.has(t));
+        if (remaining === -1) setStatus(`You found everything! 🎉 (${secs}s)`);
+        else { setActive(remaining); setStatus(`Yes! Found a ${target} ✓ (${secs}s). Now find a ${targets[remaining]}!`); }
+      } else {
+        setStatus(`No ${target} yet — keep looking! (${secs}s)`);
+      }
+    } catch {
+      setStatus("Hmm, try again.");
+    } finally {
+      // privacy: delete the captured photo immediately after inference
+      if (photoUri) { try { new File(photoUri).delete(); } catch {} }
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.paper }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 22, paddingHorizontal: 26, paddingBottom: 4 }}>
+        <Pill icon="lock">Parents</Pill>
+        <MuteButton silent={silent} onToggle={toggleSilent} />
+      </View>
+
+      <View style={{ flex: 1, flexDirection: "row", gap: 22, paddingHorizontal: 40, paddingTop: 8, paddingBottom: 30 }}>
+        {/* left: camera viewfinder */}
+        <View style={{ flex: 1.35, borderRadius: 22, overflow: "hidden", backgroundColor: "#1c2630", boxShadow: SHADOW.card }}>
+          {perm?.granted ? (
+            <CameraView ref={camRef} style={{ flex: 1 }} facing="back" />
+          ) : (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 30 }}>
+              <Icon name="search" size={48} color="#e7d8b8" />
+              <Text style={{ fontFamily: F.body, fontSize: 17, color: "#e7d8b8", textAlign: "center" }}>
+                Let TaleTrip use the camera to play the hunt. Nothing leaves the iPad.
+              </Text>
+              <Btn variant="accent" title="Allow camera" onPress={requestPerm} />
+            </View>
+          )}
+          {/* status banner */}
+          <View style={{ position: "absolute", left: 16, right: 16, bottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, backgroundColor: "rgba(20,28,36,0.78)", borderRadius: 16, paddingVertical: 12, paddingHorizontal: 18 }}>
+            <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 17, color: "#fdf4e6" }}>{status}</Text>
+            {perm?.granted ? (
+              <Pressable
+                onPress={snap}
+                disabled={busy || !ready || allDone}
+                style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 20, backgroundColor: busy || !ready ? "#7c5a48" : C.accent, opacity: allDone ? 0.5 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+              >
+                <Icon name="search" size={20} color="#fff" />
+                <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 20, color: "#fff" }}>{busy ? "Looking…" : "Snap"}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+
+        {/* right: targets checklist */}
+        <View style={{ width: 300, gap: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <ProgressRing found={found.size} total={targets.length} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 30, color: C.ink }}>Hunt</Text>
+              <Text style={{ fontFamily: F.body, fontSize: 14, color: C.inkSoft }}>Find them with the camera</Text>
+            </View>
+          </View>
+
+          <View style={{ gap: 10 }}>
+            {targets.map((t) => {
+              const got = found.has(t);
+              const isActive = t === target && !got;
+              return (
+                <Pressable
+                  key={t}
+                  onPress={() => !got && setActive(targets.indexOf(t))}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, backgroundColor: C.card, boxShadow: isActive ? `${SHADOW.soft}, 0 0 0 2px ${C.accent}` : SHADOW.soft, opacity: got ? 0.7 : 1 }}
+                >
+                  <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: got ? C.olive : C.cardInset }}>
+                    {got ? <Icon name="check" size={18} color="#fff" sw={2.4} /> : <Icon name="search" size={16} color={C.inkFaint} />}
+                  </View>
+                  <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 18, color: C.ink, textDecorationLine: got ? "line-through" : "none" }}>{cap(t)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {allDone ? (
+            <View style={{ marginTop: "auto", backgroundColor: C.card, borderRadius: 16, padding: 16, boxShadow: SHADOW.soft }}>
+              <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 24, color: C.olive }}>All found! 🎉</Text>
+              <Text style={{ fontFamily: F.body, fontSize: 15, color: C.inkSoft }}>Great looking, explorer.</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}

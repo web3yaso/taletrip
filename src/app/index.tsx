@@ -1,17 +1,17 @@
 // src/app/index.tsx
 // TaleTrip Kid · Home / Cover — faithful to the Claude Design mockup.
 // (Replaces the earlier on-device diffusion experiment.)
-import { useState } from "react";
 import { Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Btn, MuteButton, StatusChips } from "@/ui/chrome";
 import { Pill } from "@/ui/chrome";
 import { Mosaic } from "@/ui/mosaic";
+import { useMuted } from "@/reading/mute";
 import { C, F } from "@/ui/tokens";
 
 export default function Home() {
   const router = useRouter();
-  const [silent, setSilent] = useState(false);
+  const [silent, toggleSilent] = useMuted();
 
   return (
     <View style={{ flex: 1, backgroundColor: C.paper }}>
@@ -22,7 +22,7 @@ export default function Home() {
       {/* top bar */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 22, paddingHorizontal: 26, paddingBottom: 6 }}>
         <Pill icon="lock">Parents</Pill>
-        <MuteButton silent={silent} onToggle={() => setSilent((s) => !s)} />
+        <MuteButton silent={silent} onToggle={toggleSilent} />
       </View>
 
       {/* hero + title */}
@@ -61,7 +61,7 @@ export default function Home() {
             iconFill
             title="Play & Color"
             iconRight="fwd"
-            onPress={() => router.navigate("/reader")}
+            onPress={() => router.navigate("/activities")}
             style={{ width: 380, marginTop: 14, justifyContent: "space-between" }}
           />
         </View>

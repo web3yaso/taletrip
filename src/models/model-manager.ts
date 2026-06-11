@@ -33,6 +33,9 @@ export const ModelManager = {
     return ensure("vlm", VLM_LOAD);
   },
   async exitHunt() { await drop("vlm"); return this.enterReading(); },
+  // Leaving the Hunt tab: free the VLM but don't eagerly reload reading models —
+  // the Reader lazily re-ensures TTS on demand (the Kid app never needs the LLM).
+  async leaveHunt() { await drop("vlm"); },
   llmId: () => ids.llm, ttsId: () => ids.tts, vlmId: () => ids.vlm,
   async unloadAll() { await drop("vlm"); await drop("tts"); await drop("llm"); },
 };

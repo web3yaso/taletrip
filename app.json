@@ -40,7 +40,13 @@
       ],
       "expo-build-properties",
       "@qvac/sdk/expo-plugin",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "TaleTrip uses the camera so kids can scan a grown-up's pairing code and play the picture scavenger hunt — all on-device, nothing leaves the iPad."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

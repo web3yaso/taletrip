@@ -39,6 +39,29 @@ export function loadPack(id: string): ReaderStory {
   return adaptPack(pack, images);
 }
 
+// load the raw pack (for hunt targets, coloring, etc.)
+export function loadPackRaw(id: string): StoryPack | null {
+  const json = new File(new Directory(PACKS, id), "storypack.json");
+  if (!json.exists) return null;
+  try {
+    return JSON.parse(json.textSync()) as StoryPack;
+  } catch {
+    return null;
+  }
+}
+
+export type ColoringView = { kind: "nature" | "food"; name: string; uri: string };
+
+// coloring line-art pages for a pack, as displayable file:// URIs
+export function loadColoring(id: string): ColoringView[] {
+  const dir = new Directory(PACKS, id);
+  const pack = loadPackRaw(id);
+  if (!pack?.coloring) return [];
+  return pack.coloring
+    .filter((c) => new File(dir, c.image).exists)
+    .map((c) => ({ kind: c.kind, name: c.name, uri: new File(dir, c.image).uri }));
+}
+
 // On first run, copy the bundled "Mia's trip to Lisbon" into documents/packs.
 const BUNDLED_JSON = require("@/assets/packs/lisbon-mia/storypack.json") as StoryPack;
 const BUNDLED_IMAGES = [

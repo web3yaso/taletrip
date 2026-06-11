@@ -4,6 +4,7 @@
 // (expo-audio plays from a URI, not from a raw sample array — hence the WAV file.)
 import { File, Paths } from "expo-file-system";
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
+import { isMuted, subscribeMute } from "./mute";
 
 // 16-bit mono PCM samples -> WAV byte stream.
 function encodeWav(samples: number[], sampleRate: number): Uint8Array {
@@ -42,14 +43,24 @@ let audioModeReady = false;
 
 export function stopPcm() {
   try {
+    player?.pause();
+  } catch {}
+  try {
     player?.remove();
   } catch {}
   player = undefined;
 }
 
+// Silent Mode flipped ON anywhere → stop whatever is currently playing immediately,
+// independent of any screen's effects.
+subscribeMute(() => {
+  if (isMuted()) stopPcm();
+});
+
 // Write the PCM as a temp WAV and start playback. Resolves once playback has
 // STARTED (not finished). The temp file stays in the app-private cache.
 export async function playPcm(samples: number[], sampleRate = 44100): Promise<void> {
+  if (isMuted()) return; // Silent Mode — kids reading on a plane/train
   if (!audioModeReady) {
     // Play even when the device's silent switch is on.
     try {

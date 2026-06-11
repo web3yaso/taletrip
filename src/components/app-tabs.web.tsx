@@ -25,10 +25,19 @@ export default function AppTabs() {
             <TabButton>Home</TabButton>
           </TabTrigger>
           <TabTrigger name="reader" href="/reader" asChild>
-            <TabButton>Reader</TabButton>
+            <TabButton>Read</TabButton>
+          </TabTrigger>
+          <TabTrigger name="activities" href="/activities" asChild>
+            <TabButton>Play</TabButton>
+          </TabTrigger>
+          <TabTrigger name="coloring" href="/coloring" asChild>
+            <TabButton>Color</TabButton>
+          </TabTrigger>
+          <TabTrigger name="hunt" href="/hunt" asChild>
+            <TabButton>Hunt</TabButton>
           </TabTrigger>
           <TabTrigger name="p2p" href="/p2p" asChild>
-            <TabButton>P2P</TabButton>
+            <TabButton>Get a book</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>

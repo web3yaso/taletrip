@@ -14,6 +14,12 @@ export type VocabEntry = {
   say: string; // how to pronounce (target language text for TTS)
 };
 
+export type ColoringPage = {
+  kind: "nature" | "food"; // plants & animals vs. foods
+  name: string; // display name (e.g. "a cute koi fish")
+  image: string; // line-art file name within the pack dir
+};
+
 export type StoryPack = {
   id: string;
   version: number;
@@ -25,4 +31,5 @@ export type StoryPack = {
   pages: Page[];
   vocab: VocabEntry[];
   huntTargets: string[];
+  coloring?: ColoringPage[]; // printable line-art (added by the Studio SD pipeline)
 };

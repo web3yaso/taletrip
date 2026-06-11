@@ -37,6 +37,13 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, "text/html; charset=utf-8", PAGE);
   }
 
+  // ── vendored QR generator (browser renders the pairing code locally, no cloud) ──
+  if (req.method === "GET" && url === "/qrcode.js") {
+    try {
+      return send(res, 200, "application/javascript", fs.readFileSync("node_modules/qrcode-generator/dist/qrcode.js"));
+    } catch { return send(res, 404, "text/plain", "not found"); }
+  }
+
   // ── list generated packs ──
   if (req.method === "GET" && url === "/api/packs") {
     let ids = [];
@@ -127,6 +134,10 @@ button.go:disabled{opacity:.5}
 .pair .lbl{font-size:14px;color:var(--inkSoft)}
 .code{display:block;font-family:ui-monospace,Menlo,monospace;font-size:14px;word-break:break-all;margin-top:6px;color:var(--accentD);user-select:all;cursor:text}
 .tcode{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--inkFaint);word-break:break-all;user-select:all}
+.pairrow{display:flex;gap:14px;align-items:center;margin-top:10px}
+.qr{width:120px;height:120px;border-radius:10px;background:#fff;padding:6px;box-shadow:0 2px 10px rgba(0,0,0,.12);image-rendering:pixelated}
+.packrow{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.packrow .qr{width:62px;height:62px;padding:4px}
 </style></head><body><div class="wrap">
 <div style="display:flex;justify-content:space-between;align-items:flex-end">
   <div><h1>Tale<span class="t">Trip</span> · <span style="font-size:32px">Parent Studio</span></h1>
@@ -148,8 +159,10 @@ button.go:disabled{opacity:.5}
 
 <div class="card"><label style="margin-top:0">Your tales</label><div id="packs" class="muted">loading…</div></div>
 
+<script src="/qrcode.js"></script>
 <script>
 const DESTS=["Lisbon","Barcelona","Tokyo","Rome","Paris","Marrakesh"];
+function qrImg(text,cell){const qr=qrcode(0,'M');qr.addData(text);qr.make();const img=el('img',{class:'qr'});img.src=qr.createDataURL(cell||6,8);img.alt='pairing QR';return img;}
 const chips=document.getElementById('chips');
 DESTS.forEach(d=>{const b=document.createElement('button');b.className='chip';b.textContent=d;b.onclick=()=>document.getElementById('dest').value=d;chips.appendChild(b)});
 
@@ -159,7 +172,7 @@ async function loadPacks(){
   const r=await fetch('/api/packs');const ps=await r.json();
   const box=document.getElementById('packs');clear(box);
   if(!ps.length){box.appendChild(el('span',{class:'muted',text:'none yet — generate your first one above'}));return;}
-  for(const p of ps){const d=el('div',{style:'margin-bottom:10px'});const h=el('div');h.appendChild(document.createTextNode('📖 '));h.appendChild(el('b',{text:p.title}));h.appendChild(document.createTextNode(' · '+(p.pages|0)+' pages'));d.appendChild(h);if(p.pairKey)d.appendChild(el('div',{class:'tcode',text:'code: '+p.pairKey}));box.appendChild(d);}
+  for(const p of ps){const d=el('div',{class:'packrow'});if(p.pairKey)d.appendChild(qrImg(p.pairKey,3));const t=el('div',{style:'flex:1'});const h=el('div');h.appendChild(document.createTextNode('📖 '));h.appendChild(el('b',{text:p.title}));h.appendChild(document.createTextNode(' · '+(p.pages|0)+' pages'));t.appendChild(h);if(p.pairKey)t.appendChild(el('div',{class:'tcode',text:p.pairKey}));d.appendChild(t);box.appendChild(d);}
 }
 loadPacks();
 
@@ -194,8 +207,11 @@ function renderBook(pack,pairKey){
   result.appendChild(el('div',{class:'muted',text:pack.vocab.length+' Spanish words · reads aloud on-device · '+pack.pages.length+' illustrations painted on this Mac'}));
   if(pairKey){
     const box=el('div',{class:'pair'});
-    box.appendChild(el('div',{class:'lbl',text:'📡 Pairing code — on the kid\\'s iPad, open “Get a book”, paste this, tap Receive (same WiFi, P2P, no cloud):'}));
-    box.appendChild(el('code',{class:'code',text:pairKey}));
+    box.appendChild(el('div',{class:'lbl',text:'📡 Pairing code — on the kid\\'s iPad open “Get a book”, tap Scan, point at this (same WiFi, P2P, no cloud):'}));
+    const row=el('div',{class:'pairrow'});
+    row.appendChild(qrImg(pairKey,6));
+    row.appendChild(el('code',{class:'code',text:pairKey}));
+    box.appendChild(row);
     result.appendChild(box);
   }
 }

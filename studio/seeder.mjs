@@ -32,8 +32,9 @@ export async function publishPack(id) {
   const drive = new Hyperdrive(store.namespace(id));
   await drive.ready();
   await drive.put("/storypack.json", fs.readFileSync(`${dir}/storypack.json`));
-  for (const pg of pack.pages) {
-    await drive.put("/" + pg.image, fs.readFileSync(`${dir}/${pg.image}`));
+  const files = [...pack.pages.map((p) => p.image), ...(pack.coloring ?? []).map((c) => c.image)];
+  for (const file of files) {
+    await drive.put("/" + file, fs.readFileSync(`${dir}/${file}`));
   }
 
   const keyHex = b4a.toString(drive.key, "hex");

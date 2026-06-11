@@ -3,6 +3,8 @@ import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
+// TaleTrip Kid app — bottom tabs. Home cover + the activity sections + the P2P
+// "Get a book" receiver. SF Symbols keep the bar crisp on iPad.
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
@@ -14,26 +16,32 @@ export default function AppTabs() {
       labelStyle={{ selected: { color: colors.text } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
+        <NativeTabs.Trigger.Icon sf="house.fill" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="reader">
-        <NativeTabs.Trigger.Label>Reader</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
+        <NativeTabs.Trigger.Label>Read</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="book.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="activities">
+        <NativeTabs.Trigger.Label>Play</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="coloring">
+        <NativeTabs.Trigger.Label>Color</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="paintpalette.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="hunt">
+        <NativeTabs.Trigger.Label>Hunt</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="camera.viewfinder" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="p2p">
-        <NativeTabs.Trigger.Label>P2P</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
+        <NativeTabs.Trigger.Label>Get a book</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="qrcode.viewfinder" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

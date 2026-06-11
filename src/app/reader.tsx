@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ModelManager } from "@/models/model-manager";
 import { textToSpeech, TTS_SAMPLE_RATE } from "@/models/qvac";
 import { playPcm, stopPcm } from "@/reading/audio-player";
+import { useMuted } from "@/reading/mute";
 import { readerPageText, type ReaderPage, type ReaderStory, type ReaderVocab } from "@/storypack/adapter";
 import { listPacks, loadPack, seedBundledIfEmpty } from "@/storypack/store";
 import { Btn, Card, Circ, MuteButton, Pill } from "@/ui/chrome";
@@ -64,7 +65,7 @@ export default function Reader() {
   const [story, setStory] = useState<ReaderStory | null>(null);
   const [page, setPage] = useState(0);
   const [word, setWord] = useState<string | null>(null);
-  const [silent, setSilent] = useState(false);
+  const [silent, toggleSilent] = useMuted();
   const [reading, setReading] = useState(false);
   const reqRef = useRef(0);
 
@@ -157,7 +158,7 @@ export default function Reader() {
           {story.title}
         </Text>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-          <MuteButton silent={silent} onToggle={() => setSilent((s) => !s)} compact />
+          <MuteButton silent={silent} onToggle={toggleSilent} compact />
           <Circ icon="bookmark" label="Bookmark" />
         </View>
       </View>

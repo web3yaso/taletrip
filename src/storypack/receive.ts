@@ -30,13 +30,17 @@ function cacheMatches(suffix: string): Map<string, File> {
 }
 
 // Download one file from the pear:// drive and return its cached File.
+// The SDK caches downloads by `<hash(key/file)>_<file>` and skips re-download when
+// the cache file exists — so when a pack is REGENERATED under the same pairing key,
+// re-receiving would serve stale bytes. Bust the cache first to force fresh bytes.
 async function fetchToCache(key: string, file: string): Promise<File> {
-  const before = cacheMatches(file);
+  for (const f of cacheMatches(file).values()) {
+    try { f.delete(); } catch {}
+  }
   await downloadAsset({ assetSrc: `pear://${key}/${file}` } as never);
   const after = cacheMatches(file);
-  for (const [name, f] of after) if (!before.has(name)) return f; // the new one
-  const any = after.values().next().value; // idempotent re-download fallback
-  if (any) return any;
+  const fresh = after.values().next().value;
+  if (fresh) return fresh;
   throw new Error(`downloaded file not found in cache: ${file}`);
 }
 
@@ -47,8 +51,9 @@ export async function receivePack(key: string, onProgress?: (s: string) => void)
   const jsonFile = await fetchToCache(key, "storypack.json");
   const pack = JSON.parse(jsonFile.textSync()) as StoryPack;
 
+  const images = [...pack.pages.map((p) => p.image), ...(pack.coloring ?? []).map((c) => c.image)];
   assertSafeId(pack.id);
-  for (const pg of pack.pages) assertSafeFile(pg.image);
+  for (const name of images) assertSafeFile(name);
 
   const dir = new Directory(PACKS, pack.id);
   if (!dir.exists) dir.create();
@@ -56,10 +61,10 @@ export async function receivePack(key: string, onProgress?: (s: string) => void)
   if (destJson.exists) destJson.delete();
   await jsonFile.copy(destJson);
 
-  for (const pg of pack.pages) {
-    onProgress?.(`downloading ${pg.image}…`);
-    const img = await fetchToCache(key, pg.image);
-    const dest = new File(dir, pg.image);
+  for (const name of images) {
+    onProgress?.(`downloading ${name}…`);
+    const img = await fetchToCache(key, name);
+    const dest = new File(dir, name);
     if (dest.exists) dest.delete();
     await img.copy(dest);
   }
