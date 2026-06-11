@@ -1,9 +1,9 @@
 // src/app/p2p.tsx — Kid "Get a book" (P2P) · scan the pairing QR on the parent's
 // Studio (or paste the code), then receive the StoryPack over QVAC P2P and write
 // it into documents/packs so the Reader/Coloring/Hunt screens pick it up. Offline.
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { receivePack } from "@/storypack/receive";
 import { Btn, MuteButton, Pill } from "@/ui/chrome";
@@ -30,6 +30,9 @@ export default function Receive() {
   const [busy, setBusy] = useState(false);
   const lockRef = useRef(false);
   const print = (s: string) => setLog((L) => [...L, s]);
+
+  // close the scanner when this tab loses focus (don't hold the camera session)
+  useFocusEffect(useCallback(() => () => setScanning(false), []));
 
   async function receive(k: string) {
     if (busy) return;

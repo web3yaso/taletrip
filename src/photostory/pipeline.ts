@@ -7,6 +7,7 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { ModelManager } from "@/models/model-manager";
 import { completion } from "@/models/qvac";
+import { markCurrent } from "@/storypack/store";
 import type { StoryPack } from "@/storypack/types";
 import { VOCAB } from "@/storypack/vocab";
 
@@ -124,6 +125,7 @@ export async function makePhotoStory(onProgress: (p: GenProgress) => void): Prom
     pages, vocab, huntTargets: [],
   };
   new File(dir, "storypack.json").write(JSON.stringify(pack));
+  markCurrent(PHOTO_STORY_ID); // the fresh photo story becomes the Reader's default
   onProgress({ stage: "words", done: 1, total: 1 });
   return PHOTO_STORY_ID;
 }

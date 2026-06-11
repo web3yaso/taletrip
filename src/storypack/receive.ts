@@ -5,6 +5,7 @@
 // `<sha256(key/file)[:16]>_<file>`; we locate the just-appeared `*_<file>`.
 import { downloadAsset } from "@qvac/sdk";
 import { Directory, File, Paths } from "expo-file-system";
+import { markCurrent } from "./store";
 import type { StoryPack } from "./types";
 
 const CACHE = new Directory(Paths.document, ".qvac", "models");
@@ -69,6 +70,7 @@ export async function receivePack(key: string, onProgress?: (s: string) => void)
     await img.copy(dest);
   }
 
+  markCurrent(pack.id); // freshly received book becomes the Reader's default
   onProgress?.(`✅ received "${pack.title}" (${pack.pages.length} pages)`);
   return pack.id;
 }

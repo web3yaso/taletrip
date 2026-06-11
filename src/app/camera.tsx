@@ -5,7 +5,7 @@
 // the photos themselves illustrate the book → tappable Spanish words → Reader.
 import { useCallback, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import {
   addPhoto, deletePhoto, listPhotos, makePhotoStory,
@@ -46,6 +46,17 @@ export default function MyCamera() {
   const refresh = useCallback(() => setPhotos(listPhotos()), []);
   const enough = photos.length >= MIN_PHOTOS;
   const full = photos.length >= MAX_PHOTOS;
+
+  // NativeTabs keep screens mounted — only the FOCUSED tab may hold the camera
+  // session (iOS allows one), else this view steals the Hunt tab's camera.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      setPhotos(listPhotos());
+      return () => setFocused(false);
+    }, [])
+  );
 
   async function shoot() {
     if (busyShot || full || !camRef) return;
@@ -89,8 +100,12 @@ export default function MyCamera() {
       <View style={{ flex: 1, flexDirection: "row", gap: 16, paddingHorizontal: 34, paddingTop: 6, paddingBottom: 16 }}>
         {/* ── viewfinder ── */}
         <View style={{ flex: 1.65, borderRadius: 22, overflow: "hidden", backgroundColor: "#11181d", boxShadow: SHADOW.card }}>
-          {perm?.granted ? (
-            <CameraView ref={setCamRef} style={{ flex: 1 }} facing={facing} />
+          {perm?.granted && focused ? (
+            // unmounted entirely when unfocused — mounting alone can claim the
+            // single iOS camera session even when paused
+            <CameraView ref={setCamRef} style={{ flex: 1 }} facing={facing} active />
+          ) : perm?.granted ? (
+            <View style={{ flex: 1, backgroundColor: "#11181d" }} />
           ) : (
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 30 }}>
               <Icon name="camera" size={48} color="#e7d8b8" />

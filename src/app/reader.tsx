@@ -10,7 +10,7 @@ import { textToSpeech, TTS_SAMPLE_RATE } from "@/models/qvac";
 import { playPcm, stopPcm } from "@/reading/audio-player";
 import { useMuted } from "@/reading/mute";
 import { readerPageText, type ReaderPage, type ReaderStory, type ReaderVocab } from "@/storypack/adapter";
-import { listPacks, loadPack, seedBundledIfEmpty } from "@/storypack/store";
+import { currentPackId, listPacks, loadPack, seedBundledIfEmpty } from "@/storypack/store";
 import { Btn, Card, Circ, MuteButton, Pill } from "@/ui/chrome";
 import { Icon } from "@/ui/icon";
 import { Mosaic } from "@/ui/mosaic";
@@ -77,7 +77,11 @@ export default function Reader() {
         await seedBundledIfEmpty();
         const packs = listPacks();
         if (!packs.length || cancelled) return;
-        const id = params.id && packs.some((p) => p.id === params.id) ? params.id : packs[0].id;
+        // explicit ?id= wins; else the "current" (newest received/generated) book
+        const id =
+          params.id && packs.some((p) => p.id === params.id)
+            ? params.id
+            : (currentPackId() ?? packs[0].id);
         const s = loadPack(id);
         if (!cancelled) {
           setStory(s);

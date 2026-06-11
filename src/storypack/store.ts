@@ -39,6 +39,24 @@ export function loadPack(id: string): ReaderStory {
   return adaptPack(pack, images);
 }
 
+// "current book" marker — set on receive/generate so the Reader defaults to the
+// newest book instead of whatever sorts first in the directory.
+const CURRENT = () => new File(PACKS, ".current");
+export function markCurrent(id: string) {
+  ensureDir();
+  try { CURRENT().write(id); } catch {}
+}
+export function currentPackId(): string | null {
+  try {
+    const f = CURRENT();
+    if (!f.exists) return null;
+    const id = f.textSync().trim();
+    return new File(new Directory(PACKS, id), "storypack.json").exists ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 // load the raw pack (for hunt targets etc.)
 export function loadPackRaw(id: string): StoryPack | null {
   const json = new File(new Directory(PACKS, id), "storypack.json");
