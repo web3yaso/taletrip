@@ -17,9 +17,8 @@ function extractKey(s: string): string | null {
   return m ? m[0].toLowerCase() : null;
 }
 
-// prefill: tokyo-hana (SDXL — cute cherry blossom/koi/maple + sushi/ramen/mochi
-// coloring pages). Any QR/code from the Studio works too.
-const DEFAULT_KEY = "5493b4a556f430dc573967ad709eb690a85c7e61247b1a484b7cadfd1afa7c25";
+// prefill: barcelona-sofia, the demo book. Any QR/code from the Studio works too.
+const DEFAULT_KEY = "db84daf025da96d8e60dc07f82b37dddd636c8b19383fe1e3a845506623ab86f";
 
 export default function Receive() {
   const router = useRouter();

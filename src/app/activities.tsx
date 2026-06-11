@@ -13,9 +13,9 @@ type Tile = { title: string; subtitle: string; icon: string; href: Href; mood: M
 
 const TILES: Tile[] = [
   { title: "Read a story", subtitle: "Tap the colored words", icon: "book", href: "/reader", mood: "sky", seed: 12 },
-  { title: "Color & print", subtitle: "Landmarks & local food", icon: "palette", href: "/coloring", mood: "earth", seed: 31, iconFill: true },
+  { title: "Get a book", subtitle: "Scan a grown-up's code", icon: "download", href: "/p2p", mood: "earth", seed: 31 },
   { title: "Scavenger hunt", subtitle: "Find it with the camera", icon: "search", href: "/hunt", mood: "garden", seed: 47 },
-  { title: "Word cards", subtitle: "Your Spanish words", icon: "translate", href: "/reader", mood: "sea", seed: 63 },
+  { title: "Photo story", subtitle: "Snap photos, make a tale", icon: "camera", href: "/camera", mood: "sea", seed: 63 },
 ];
 
 function TileCard({ tile }: { tile: Tile }) {

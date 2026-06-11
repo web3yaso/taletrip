@@ -47,7 +47,11 @@ const server = http.createServer(async (req, res) => {
   // ── list generated packs ──
   if (req.method === "GET" && url === "/api/packs") {
     let ids = [];
-    try { ids = fs.readdirSync("studio/packs").filter((d) => fs.existsSync(`studio/packs/${d}/storypack.json`)); } catch {}
+    try {
+      ids = fs.readdirSync("studio/packs").filter((d) => fs.existsSync(`studio/packs/${d}/storypack.json`));
+      // newest first — the UI shows only the latest tale's pairing QR
+      ids.sort((a, b) => fs.statSync(`studio/packs/${b}/storypack.json`).mtimeMs - fs.statSync(`studio/packs/${a}/storypack.json`).mtimeMs);
+    } catch {}
     const metas = ids.map((id) => {
       try { return JSON.parse(fs.readFileSync(`studio/packs/${id}/storypack.json`)); } catch { return null; }
     }).filter(Boolean);
@@ -136,8 +140,8 @@ button.go:disabled{opacity:.5}
 .tcode{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--inkFaint);word-break:break-all;user-select:all}
 .pairrow{display:flex;gap:14px;align-items:center;margin-top:10px}
 .qr{width:120px;height:120px;border-radius:10px;background:#fff;padding:6px;box-shadow:0 2px 10px rgba(0,0,0,.12);image-rendering:pixelated}
-.packrow{display:flex;gap:12px;align-items:center;margin-bottom:14px}
-.packrow .qr{width:62px;height:62px;padding:4px}
+.packrow{display:flex;gap:20px;align-items:center;margin-bottom:8px}
+.packrow .qr{width:230px;height:230px;padding:8px}
 </style></head><body><div class="wrap">
 <div style="display:flex;justify-content:space-between;align-items:flex-end">
   <div><h1>Tale<span class="t">Trip</span> · <span style="font-size:32px">Parent Studio</span></h1>
@@ -172,7 +176,14 @@ async function loadPacks(){
   const r=await fetch('/api/packs');const ps=await r.json();
   const box=document.getElementById('packs');clear(box);
   if(!ps.length){box.appendChild(el('span',{class:'muted',text:'none yet — generate your first one above'}));return;}
-  for(const p of ps){const d=el('div',{class:'packrow'});if(p.pairKey)d.appendChild(qrImg(p.pairKey,3));const t=el('div',{style:'flex:1'});const h=el('div');h.appendChild(document.createTextNode('📖 '));h.appendChild(el('b',{text:p.title}));h.appendChild(document.createTextNode(' · '+(p.pages|0)+' pages'));t.appendChild(h);if(p.pairKey)t.appendChild(el('div',{class:'tcode',text:p.pairKey}));d.appendChild(t);box.appendChild(d);}
+  const p=ps[0]; // newest only — exactly one pairing QR on screen
+  const d=el('div',{class:'packrow'});
+  if(p.pairKey)d.appendChild(qrImg(p.pairKey,6));
+  const t=el('div',{style:'flex:1'});
+  const h=el('div',{style:'font-size:18px'});h.appendChild(document.createTextNode('📖 '));h.appendChild(el('b',{text:p.title}));h.appendChild(document.createTextNode(' · '+(p.pages|0)+' pages'));t.appendChild(h);
+  t.appendChild(el('div',{class:'lbl',style:'margin-top:8px',text:'On the kid\\'s iPad: Get a book → Scan, point at this QR (same WiFi · P2P · no cloud).'}));
+  if(p.pairKey)t.appendChild(el('div',{class:'tcode',style:'margin-top:8px',text:p.pairKey}));
+  d.appendChild(t);box.appendChild(d);
 }
 loadPacks();
 

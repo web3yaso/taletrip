@@ -12,8 +12,6 @@ const PACKS_ROOT = fs.realpathSync("studio/packs");
 const safeSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
 import { llmPlugin } from "@qvac/sdk/llamacpp-completion/plugin";
 import { diffusionPlugin } from "@qvac/sdk/sdcpp-generation/plugin";
-import { subjectsFor } from "./coloring-subjects.mjs";
-import { pngToLineArt } from "./lineart.mjs";
 
 const sdk = plugins([llmPlugin, diffusionPlugin]);
 
@@ -50,12 +48,6 @@ const STYLE = "children's storybook illustration, soft watercolor, warm Mediterr
 const NEG = "blurry, deformed, extra limbs, ugly, text, watermark, scary";
 const DENY = /\b(kill|blood|gun|die|dead|scary|hate|weapon)\b/i;
 
-// Coloring pages: cute SIMPLE kawaii cartoons (curated per-region plants/animals/
-// foods — see coloring-subjects.mjs). SD renders them in soft color, then
-// pngToLineArt() bakes them into clean black-and-white coloring pages for printing.
-const COLOR_STYLE = "cute simple cartoon, thick bold uniform black outline, minimal interior detail, kawaii style, rounded chubby shapes, plain white background, no shading, lots of empty white space, adorable, very simple, single object centered";
-const COLOR_NEG = "shadow, shading, gradient, solid black, silhouette, dark background, realistic, photo, 3d, detailed, intricate, ornate, complex, many lines, busy, fine detail, text, watermark, scenery, background, multiple objects, pattern, texture, grid, frame, border";
-
 function narrationMessages(scene, childName, dest) {
   return [
     { role: "system", content: "Write one short storybook page for a 5-year-old: 2-3 simple, gentle sentences. Use the child's name. Keep it about the given scene. No scary content." },
@@ -80,8 +72,7 @@ export async function generateStoryPack(req, onProgress = () => {}) {
 
   const { llm, sd } = await loadEngines(onProgress);
   const scenes = sceneArc(destination).slice(0, nPages);
-  const N_COLOR = 6; // 3 landmarks + 3 foods
-  const total = scenes.length * 2 + N_COLOR;
+  const total = scenes.length * 2;
   let step = 0;
 
   // Phase 1: LLM narration
@@ -112,39 +103,12 @@ export async function generateStoryPack(req, onProgress = () => {}) {
     if (bufs?.[0]) fs.writeFileSync(`${outDir}/p${i}.png`, bufs[0]);
   }
 
-  // Phase 2.5: coloring pages — curated SIMPLE per-region subjects (plants / animals
-  // / foods), rendered as cute kawaii cartoons, then baked into clean black-and-white
-  // coloring pages with pngToLineArt() so they print like a real coloring book.
-  const colorItems = subjectsFor(destination).map((s, i) => ({ kind: s.kind, name: s.name, image: `color-${i}.png` }));
-  for (let i = 0; i < colorItems.length; i++) {
-    const it = colorItems[i];
-    onProgress(`drawing coloring page: ${it.name}…`, ++step, total);
-    // best-of-N: a good coloring page is mostly white — keep the attempt with the
-    // least black (auto-rejects solid-black failures like dark foods).
-    let best = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const { progressStream, outputs } = sdk.diffusion({
-        modelId: sd, prompt: `${it.name}, ${COLOR_STYLE}`, negative_prompt: COLOR_NEG,
-        width: 768, height: 768, steps: 24, cfg_scale: 8, seed: 100 + i * 17 + attempt * 101,
-      });
-      for await (const _ of progressStream) { /* drain */ }
-      const bufs = await outputs;
-      if (!bufs?.[0]) continue;
-      let res;
-      try { res = pngToLineArt(bufs[0]); } catch { res = { png: bufs[0], black: 1 }; }
-      if (!best || res.black < best.black) best = res;
-      if (best.black <= 0.22) break; // clean enough — stop early
-    }
-    if (best) fs.writeFileSync(`${outDir}/${it.image}`, best.png);
-  }
-
   // Phase 3: pack
   const pack = {
     id, version: 1, checksum: "sha256:dev",
     title: `${childName}'s trip to ${destination}`,
     narrationLang: "en", vocabLang, ageRange: [4, 7],
     pages, vocab: Object.values(vocabAll), huntTargets: ["tree", "tower", "boat"],
-    coloring: colorItems.filter((it) => fs.existsSync(`${outDir}/${it.image}`)),
   };
   fs.writeFileSync(`${outDir}/storypack.json`, JSON.stringify(pack, null, 2));
   onProgress("done", total, total);

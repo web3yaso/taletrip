@@ -59,9 +59,17 @@ export default function Home() {
             variant="secondary"
             icon="star"
             iconFill
-            title="Play & Color"
+            title="Play & Explore"
             iconRight="fwd"
             onPress={() => router.navigate("/activities")}
+            style={{ width: 380, marginTop: 14, justifyContent: "space-between" }}
+          />
+          <Btn
+            variant="secondary"
+            icon="camera"
+            title="Make a Photo Story"
+            iconRight="fwd"
+            onPress={() => router.navigate("/camera")}
             style={{ width: 380, marginTop: 14, justifyContent: "space-between" }}
           />
         </View>

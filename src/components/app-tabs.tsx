@@ -29,14 +29,14 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="coloring">
-        <NativeTabs.Trigger.Label>Color</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="paintpalette.fill" />
-      </NativeTabs.Trigger>
-
       <NativeTabs.Trigger name="hunt">
         <NativeTabs.Trigger.Label>Hunt</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="camera.viewfinder" />
+        <NativeTabs.Trigger.Icon sf="binoculars.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="camera">
+        <NativeTabs.Trigger.Label>Camera</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="camera.fill" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="p2p">

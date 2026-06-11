@@ -1,0 +1,31 @@
+// src/storypack/vocab.ts
+// Shared EN→ES vocab table (mirrors studio/generate.mjs VOCAB) — used by the
+// on-iPad photo-story pipeline to pick tappable Spanish words from narration.
+export const VOCAB: Record<string, { translation: string; say: string }> = {
+  square: { translation: "la plaza", say: "la plaza" },
+  color: { translation: "el color", say: "el color" },
+  tower: { translation: "la torre", say: "la torre" },
+  sky: { translation: "el cielo", say: "el cielo" },
+  park: { translation: "el parque", say: "el parque" },
+  tree: { translation: "el árbol", say: "el árbol" },
+  bird: { translation: "el pájaro", say: "el pájaro" },
+  fountain: { translation: "la fuente", say: "la fuente" },
+  beach: { translation: "la playa", say: "la playa" },
+  wave: { translation: "la ola", say: "la ola" },
+  boat: { translation: "el barco", say: "el barco" },
+  sun: { translation: "el sol", say: "el sol" },
+  sunset: { translation: "el atardecer", say: "el atardecer" },
+  light: { translation: "la luz", say: "la luz" },
+  city: { translation: "la ciudad", say: "la ciudad" },
+  morning: { translation: "la mañana", say: "la mañana" },
+  dog: { translation: "el perro", say: "el perro" },
+  cat: { translation: "el gato", say: "el gato" },
+  flower: { translation: "la flor", say: "la flor" },
+  house: { translation: "la casa", say: "la casa" },
+  water: { translation: "el agua", say: "el agua" },
+  book: { translation: "el libro", say: "el libro" },
+  table: { translation: "la mesa", say: "la mesa" },
+  window: { translation: "la ventana", say: "la ventana" },
+  street: { translation: "la calle", say: "la calle" },
+  food: { translation: "la comida", say: "la comida" },
+};

@@ -51,7 +51,7 @@ export async function receivePack(key: string, onProgress?: (s: string) => void)
   const jsonFile = await fetchToCache(key, "storypack.json");
   const pack = JSON.parse(jsonFile.textSync()) as StoryPack;
 
-  const images = [...pack.pages.map((p) => p.image), ...(pack.coloring ?? []).map((c) => c.image)];
+  const images = pack.pages.map((p) => p.image);
   assertSafeId(pack.id);
   for (const name of images) assertSafeFile(name);
 
