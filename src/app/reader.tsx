@@ -83,9 +83,12 @@ export default function Reader() {
   // bookshelf: parent-sent books + the kid's own photo story, switchable
   const [shelf, setShelf] = useState(false);
   const [books, setBooks] = useState<{ id: string; title: string; cover: string | null; mine: boolean }[]>([]);
+  // two-step delete: long-press arms a book (red badge), tapping the badge deletes
+  const [armed, setArmed] = useState<string | null>(null);
 
   const openShelf = useCallback(() => {
     setBooks(listPacks().map((p) => ({ ...p, cover: packCover(p.id), mine: p.id === PHOTO_STORY_ID })));
+    setArmed(null);
     setShelf(true);
   }, []);
 
@@ -265,13 +268,9 @@ export default function Reader() {
               {books.map((b) => (
                 <Pressable
                   key={b.id}
-                  onPress={() => pickBook(b.id)}
-                  delayLongPress={900}
-                  onLongPress={() => {
-                    // grown-up gesture: long-press to remove a book from the iPad
-                    deletePack(b.id);
-                    setBooks((bs) => bs.filter((x) => x.id !== b.id));
-                  }}
+                  onPress={() => (armed === b.id ? setArmed(null) : pickBook(b.id))}
+                  delayLongPress={700}
+                  onLongPress={() => setArmed(b.id)}
                   style={{ width: 180 }}
                 >
                   <View style={{ width: 180, height: 126, borderRadius: 14, overflow: "hidden", backgroundColor: C.cardInset, boxShadow: SHADOW.soft }}>
@@ -286,6 +285,19 @@ export default function Reader() {
                       <Text style={{ fontSize: 11.5, color: "#fff", fontFamily: F.bodySemi }}>{b.mine ? "📷 Made by me" : "From your grown-ups"}</Text>
                     </View>
                   </View>
+                  {armed === b.id ? (
+                    // second tap on the red badge confirms the delete
+                    <Pressable
+                      onPress={() => {
+                        deletePack(b.id);
+                        setBooks((bs) => bs.filter((x) => x.id !== b.id));
+                        setArmed(null);
+                      }}
+                      style={{ position: "absolute", left: -8, top: -8, width: 34, height: 34, borderRadius: 17, backgroundColor: "#d23b2e", alignItems: "center", justifyContent: "center", boxShadow: SHADOW.soft, zIndex: 2 }}
+                    >
+                      <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700", lineHeight: 24 }}>−</Text>
+                    </Pressable>
+                  ) : null}
                   <Text numberOfLines={2} style={{ fontFamily: F.bodyMed, fontSize: 15, color: C.ink, marginTop: 6 }}>{b.title}</Text>
                 </Pressable>
               ))}

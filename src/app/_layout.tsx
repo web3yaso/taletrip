@@ -2,7 +2,6 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState, useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { ModelManager } from '@/models/model-manager';
 import { useTaleFonts } from '@/ui/fonts';
@@ -21,7 +20,6 @@ export default function TabLayout() {
   }, []);
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
       <AppTabs />
     </ThemeProvider>
   );
