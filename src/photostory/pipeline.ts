@@ -5,6 +5,7 @@
 // child's own photos ARE the illustrations → vocab table adds tappable Spanish.
 // Memory choreography reuses the proven Hunt swap (VLM alone, then LLM+TTS).
 import { Directory, File, Paths } from "expo-file-system";
+import { beginRun, endRun } from "@/evidence/log";
 import { ModelManager } from "@/models/model-manager";
 import { completion } from "@/models/qvac";
 import { markCurrent } from "@/storypack/store";
@@ -64,6 +65,7 @@ export async function makePhotoStory(onProgress: (p: GenProgress) => void): Prom
   const photos = listPhotos().slice(0, MAX_PHOTOS);
   if (photos.length < MIN_PHOTOS) throw new Error(`need at least ${MIN_PHOTOS} photos`);
   const n = photos.length;
+  beginRun("photostory");
 
   // 1) "Looking at your photos" — SmolVLM captions, one photo at a time
   onProgress({ stage: "look", done: 0, total: n });
@@ -126,6 +128,7 @@ export async function makePhotoStory(onProgress: (p: GenProgress) => void): Prom
   };
   new File(dir, "storypack.json").write(JSON.stringify(pack));
   markCurrent(PHOTO_STORY_ID); // the fresh photo story becomes the Reader's default
+  endRun({ packId: PHOTO_STORY_ID, pages: n, vocab: vocab.length });
   onProgress({ stage: "words", done: 1, total: 1 });
   return PHOTO_STORY_ID;
 }

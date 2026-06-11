@@ -12,6 +12,7 @@ const PACKS_ROOT = fs.realpathSync("studio/packs");
 const safeSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
 import { llmPlugin } from "@qvac/sdk/llamacpp-completion/plugin";
 import { diffusionPlugin } from "@qvac/sdk/sdcpp-generation/plugin";
+import { logEvent } from "./evidence.mjs";
 
 const sdk = plugins([llmPlugin, diffusionPlugin]);
 
@@ -20,9 +21,13 @@ export function loadEngines(onProgress = () => {}) {
   if (!enginesPromise) {
     enginesPromise = (async () => {
       onProgress("warming up the storyteller (LLM)…");
+      let t0 = Date.now();
       const llm = await sdk.loadModel({ modelSrc: LLAMA_3_2_1B_INST_Q4_0, modelType: "llm" });
+      logEvent("loadModel", { model: "LLAMA_3_2_1B_INST_Q4_0", durMs: Date.now() - t0 });
       onProgress("warming up the illustrator (SDXL)…");
+      t0 = Date.now();
       const sd = await sdk.loadModel({ modelSrc: SDXL_BASE_1_0_3B_Q4_0 });
+      logEvent("loadModel", { model: "SDXL_BASE_1_0_3B_Q4_0", durMs: Date.now() - t0 });
       return { llm, sd };
     })();
   }
@@ -80,8 +85,10 @@ export async function generateStoryPack(req, onProgress = () => {}) {
   const vocabAll = {};
   for (let i = 0; i < scenes.length; i++) {
     onProgress(`writing page ${i + 1} of ${scenes.length}…`, ++step, total);
+    const tw = Date.now();
     const r = sdk.completion({ modelId: llm, history: narrationMessages(scenes[i], childName, destination), stream: false });
     let text = (await r.text).trim().split("\n").filter(Boolean)[0] ?? "";
+    logEvent("completion", { model: "LLAMA_3_2_1B_INST_Q4_0", page: i, durMs: Date.now() - tw, outputChars: text.length });
     if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `${childName} enjoys ${scenes[i]}.`;
     for (const v of pickVocab(text)) vocabAll[v.word] = v;
     pages.push({ index: i, image: `p${i}.png`, scene: scenes[i], authoredNarration: text, slots: [] });
@@ -94,6 +101,7 @@ export async function generateStoryPack(req, onProgress = () => {}) {
   fs.mkdirSync(outDir, { recursive: true });
   for (let i = 0; i < pages.length; i++) {
     onProgress(`painting page ${i + 1} of ${pages.length}…`, ++step, total);
+    const tp = Date.now();
     const { progressStream, outputs } = sdk.diffusion({
       modelId: sd, prompt: `${pages[i].scene}, ${STYLE}`, negative_prompt: NEG,
       width: 768, height: 768, steps: 24, cfg_scale: 8, seed: 40 + i * 7,
@@ -101,6 +109,7 @@ export async function generateStoryPack(req, onProgress = () => {}) {
     for await (const _ of progressStream) { /* drain */ }
     const bufs = await outputs;
     if (bufs?.[0]) fs.writeFileSync(`${outDir}/p${i}.png`, bufs[0]);
+    logEvent("diffusion", { model: "SDXL_BASE_1_0_3B_Q4_0", page: i, durMs: Date.now() - tp, bytes: bufs?.[0]?.length ?? 0, size: "768x768", steps: 24 });
   }
 
   // Phase 3: pack

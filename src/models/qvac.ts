@@ -1,10 +1,18 @@
 // src/models/qvac.ts
+// Single choke point for every QVAC inference on the iPad — the evidence logger
+// wraps the SDK here, so all model loads/completions/synthesis are recorded for
+// the competition's verification bundle without touching feature code.
 import {
-  loadModel, unloadModel, completion, textToSpeech,
+  loadModel as _loadModel,
+  unloadModel as _unloadModel,
+  completion as _completion,
+  textToSpeech as _textToSpeech,
+  downloadAsset as _downloadAsset,
   LLAMA_3_2_1B_INST_Q4_0,
   TTS_MULTILINGUAL_SUPERTONIC2_Q8_0,
   SMOLVLM2_500M_MULTIMODAL_Q8_0, MMPROJ_SMOLVLM2_500M_MULTIMODAL_Q8_0,
 } from "@qvac/sdk";
+import { logEvent } from "@/evidence/log";
 
 export const TTS_SAMPLE_RATE = 44100; // Supertonic int16 PCM
 
@@ -34,4 +42,70 @@ export const translateMessages = (text: string) => [
 export const huntPrompt = (target: string) =>
   `Look carefully. Is there a real ${target} in this image? Answer only 'yes' or 'no'. If you are not sure, answer 'no'.`;
 
-export { loadModel, unloadModel, completion, textToSpeech };
+// ── evidence instrumentation ────────────────────────────────────────────────
+const idToName = new Map<string, string>(); // modelId -> human model name
+
+function srcName(src: unknown): string {
+  if (src && typeof src === "object" && "name" in (src as any)) return String((src as any).name);
+  if (typeof src === "string") return src.split("/").pop() ?? src;
+  return "unknown";
+}
+
+// lazily wrap one promise-valued property (e.g. .text/.buffer) to time it
+// without consuming the underlying stream eagerly
+function timeProp<T extends object>(run: T, prop: string, onDone: (ms: number, val: unknown) => void): T {
+  const t0 = Date.now();
+  let cached: Promise<unknown> | undefined;
+  return new Proxy(run, {
+    get(target, p) {
+      const v = Reflect.get(target, p, target);
+      if (p === prop) {
+        if (!cached) cached = Promise.resolve(v).then((val) => { onDone(Date.now() - t0, val); return val; });
+        return cached;
+      }
+      return typeof v === "function" ? (v as Function).bind(target) : v;
+    },
+  }) as T;
+}
+
+export const loadModel: typeof _loadModel = (async (opts: any) => {
+  const t0 = Date.now();
+  const name = srcName(opts?.modelSrc);
+  const id = await _loadModel(opts);
+  idToName.set(String(id), name);
+  logEvent("loadModel", { model: name, modelType: opts?.modelType ?? "auto", durMs: Date.now() - t0 });
+  return id;
+}) as typeof _loadModel;
+
+export const unloadModel: typeof _unloadModel = (async (opts: any) => {
+  const name = idToName.get(String(opts?.modelId)) ?? "unknown";
+  const r = await _unloadModel(opts);
+  logEvent("unloadModel", { model: name });
+  return r;
+}) as typeof _unloadModel;
+
+export const completion: typeof _completion = ((params: any) => {
+  const model = idToName.get(String(params?.modelId)) ?? "unknown";
+  const multimodal = !!params?.history?.some((m: any) => m?.attachments?.length);
+  const run = _completion(params);
+  return timeProp(run as object, "text", (ms, val) =>
+    logEvent("completion", { model, multimodal, durMs: ms, outputChars: typeof val === "string" ? val.length : -1 }),
+  ) as ReturnType<typeof _completion>;
+}) as typeof _completion;
+
+export const textToSpeech: typeof _textToSpeech = ((params: any) => {
+  const model = idToName.get(String(params?.modelId)) ?? "unknown";
+  const inputChars = typeof params?.text === "string" ? params.text.length : -1;
+  const run = _textToSpeech(params);
+  return timeProp(run as object, "buffer", (ms, val) =>
+    logEvent("tts", { model, inputChars, durMs: ms, samples: Array.isArray(val) ? val.length : -1 }),
+  ) as ReturnType<typeof _textToSpeech>;
+}) as typeof _textToSpeech;
+
+export const downloadAsset: typeof _downloadAsset = (async (opts: any) => {
+  const t0 = Date.now();
+  const src = typeof opts?.assetSrc === "string" ? opts.assetSrc : "unknown";
+  const r = await _downloadAsset(opts);
+  logEvent("downloadAsset", { assetSrc: src.slice(0, 90), durMs: Date.now() - t0 });
+  return r;
+}) as typeof _downloadAsset;

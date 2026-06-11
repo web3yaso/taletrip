@@ -3,8 +3,9 @@
 // pear:// hyperdrive, then copy the bytes into documents/packs/<id>/ where the
 // Reader picks them up. downloadAsset lands files in the worker cache as
 // `<sha256(key/file)[:16]>_<file>`; we locate the just-appeared `*_<file>`.
-import { downloadAsset } from "@qvac/sdk";
 import { Directory, File, Paths } from "expo-file-system";
+import { beginRun, endRun } from "@/evidence/log";
+import { downloadAsset } from "@/models/qvac"; // evidence-instrumented re-export
 import { markCurrent } from "./store";
 import type { StoryPack } from "./types";
 
@@ -46,6 +47,7 @@ async function fetchToCache(key: string, file: string): Promise<File> {
 }
 
 export async function receivePack(key: string, onProgress?: (s: string) => void): Promise<string> {
+  beginRun("receive");
   if (!PACKS.exists) PACKS.create();
 
   onProgress?.("downloading story…");
@@ -71,6 +73,7 @@ export async function receivePack(key: string, onProgress?: (s: string) => void)
   }
 
   markCurrent(pack.id); // freshly received book becomes the Reader's default
+  endRun({ packId: pack.id, pages: pack.pages.length });
   onProgress?.(`✅ received "${pack.title}" (${pack.pages.length} pages)`);
   return pack.id;
 }

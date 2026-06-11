@@ -7,6 +7,7 @@
 import http from "bare-http1";
 import fs from "bare-fs";
 import path from "bare-path";
+import { beginRun, endRun } from "./evidence.mjs";
 import { loadEngines, generateStoryPack } from "./generate.mjs";
 import { publishPack } from "./seeder.mjs";
 
@@ -85,10 +86,12 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     const emit = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
     try {
+      beginRun("generate", { destination: reqBody?.destination, childName: reqBody?.childName, pages: reqBody?.pages });
       const pack = await generateStoryPack(reqBody, (label, step, total) => emit({ label, step, total }));
       emit({ label: "seeding over P2P…", step: 0, total: 0 });
       let pairKey = null;
       try { pairKey = (await publishPack(pack.id)).keyHex; } catch (e) { console.log("seed error:", e); }
+      endRun({ packId: pack.id, pages: pack.pages.length, pairKey: pairKey ? pairKey.slice(0, 12) : null });
       emit({ done: true, pack, pairKey });
     } catch (e) {
       emit({ error: String(e?.message ?? e) });

@@ -46,3 +46,4 @@ scripts/sample-*.png
 scripts/mac-sd-out.png
 CLAUDE.md
 studio/loras/
+artifacts/runs/
