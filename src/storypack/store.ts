@@ -57,6 +57,23 @@ export function currentPackId(): string | null {
   }
 }
 
+// remove a book from the device (long-press on the shelf)
+export function deletePack(id: string) {
+  try {
+    const dir = new Directory(PACKS, id);
+    if (dir.exists) dir.delete();
+  } catch {}
+}
+
+// first-page image as a bookshelf cover (file:// uri), if present
+export function packCover(id: string): string | null {
+  const raw = loadPackRaw(id);
+  const img = raw?.pages?.[0]?.image;
+  if (!img) return null;
+  const f = new File(new Directory(PACKS, id), img);
+  return f.exists ? f.uri : null;
+}
+
 // load the raw pack (for hunt targets etc.)
 export function loadPackRaw(id: string): StoryPack | null {
   const json = new File(new Directory(PACKS, id), "storypack.json");

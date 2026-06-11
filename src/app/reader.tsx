@@ -4,13 +4,14 @@
 // read-aloud and word pronounce. Fully offline.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { ModelManager } from "@/models/model-manager";
 import { textToSpeech, TTS_SAMPLE_RATE } from "@/models/qvac";
 import { playPcm, stopPcm } from "@/reading/audio-player";
 import { useMuted } from "@/reading/mute";
 import { readerPageText, type ReaderPage, type ReaderStory, type ReaderVocab } from "@/storypack/adapter";
-import { currentPackId, listPacks, loadPack, seedBundledIfEmpty } from "@/storypack/store";
+import { PHOTO_STORY_ID } from "@/photostory/pipeline";
+import { currentPackId, deletePack, listPacks, loadPack, markCurrent, packCover, seedBundledIfEmpty } from "@/storypack/store";
 import { Btn, Card, Circ, MuteButton, Pill } from "@/ui/chrome";
 import { Icon } from "@/ui/icon";
 import { Mosaic } from "@/ui/mosaic";
@@ -67,6 +68,37 @@ export default function Reader() {
   const [word, setWord] = useState<string | null>(null);
   const [silent, toggleSilent] = useMuted();
   const [reading, setReading] = useState(false);
+  // NativeTabs mount every tab up-front — only read aloud while THIS tab is
+  // focused, and stop narration the moment the kid switches away.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => {
+        setFocused(false);
+        stopPcm();
+      };
+    }, [])
+  );
+  // bookshelf: parent-sent books + the kid's own photo story, switchable
+  const [shelf, setShelf] = useState(false);
+  const [books, setBooks] = useState<{ id: string; title: string; cover: string | null; mine: boolean }[]>([]);
+
+  const openShelf = useCallback(() => {
+    setBooks(listPacks().map((p) => ({ ...p, cover: packCover(p.id), mine: p.id === PHOTO_STORY_ID })));
+    setShelf(true);
+  }, []);
+
+  const pickBook = useCallback((id: string) => {
+    try {
+      const s = loadPack(id);
+      markCurrent(id);
+      setStory(s);
+      setPage(0);
+      setWord(null);
+    } catch {}
+    setShelf(false);
+  }, []);
   const reqRef = useRef(0);
 
   // load a StoryPack from the device documents (seed the bundled demo on first run)
@@ -104,7 +136,7 @@ export default function Reader() {
     let cancelled = false;
     const req = ++reqRef.current;
     stopPcm();
-    if (silent || !story || !pg) {
+    if (!focused || silent || !story || !pg) {
       setReading(false);
       return;
     }
@@ -126,7 +158,7 @@ export default function Reader() {
     return () => {
       cancelled = true;
     };
-  }, [page, silent, pg, story]);
+  }, [page, silent, pg, story, focused]);
 
   useEffect(() => () => stopPcm(), []);
 
@@ -163,7 +195,7 @@ export default function Reader() {
         </Text>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <MuteButton silent={silent} onToggle={toggleSilent} compact />
-          <Circ icon="bookmark" label="Bookmark" />
+          <Circ icon="library" label="My books" onPress={openShelf} />
         </View>
       </View>
 
@@ -223,6 +255,44 @@ export default function Reader() {
       </View>
 
       {word ? <VocabCard wordKey={word} vocab={story.vocab} onClose={() => setWord(null)} silent={silent} onHear={hearWord} /> : null}
+
+      {/* bookshelf overlay — parent-sent books + the kid's own photo story */}
+      {shelf ? (
+        <Pressable onPress={() => setShelf(false)} style={{ position: "absolute", inset: 0, zIndex: 30, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(28,42,56,0.5)" }}>
+          <Pressable onPress={() => {}} style={{ width: 640, maxWidth: "88%", maxHeight: "82%", backgroundColor: C.card, borderRadius: 26, padding: 24, boxShadow: SHADOW.pop }}>
+            <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 28, color: C.ink, marginBottom: 14 }}>My books</Text>
+            <ScrollView contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
+              {books.map((b) => (
+                <Pressable
+                  key={b.id}
+                  onPress={() => pickBook(b.id)}
+                  delayLongPress={900}
+                  onLongPress={() => {
+                    // grown-up gesture: long-press to remove a book from the iPad
+                    deletePack(b.id);
+                    setBooks((bs) => bs.filter((x) => x.id !== b.id));
+                  }}
+                  style={{ width: 180 }}
+                >
+                  <View style={{ width: 180, height: 126, borderRadius: 14, overflow: "hidden", backgroundColor: C.cardInset, boxShadow: SHADOW.soft }}>
+                    {b.cover ? (
+                      <Image source={{ uri: b.cover }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                    ) : (
+                      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                        <Icon name="book" size={34} color={C.inkFaint} />
+                      </View>
+                    )}
+                    <View style={{ position: "absolute", left: 8, top: 8, backgroundColor: b.mine ? C.accent : "rgba(40,55,70,0.65)", borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
+                      <Text style={{ fontSize: 11.5, color: "#fff", fontFamily: F.bodySemi }}>{b.mine ? "📷 Made by me" : "From your grown-ups"}</Text>
+                    </View>
+                  </View>
+                  <Text numberOfLines={2} style={{ fontFamily: F.bodyMed, fontSize: 15, color: C.ink, marginTop: 6 }}>{b.title}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
