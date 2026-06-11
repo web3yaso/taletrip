@@ -39,9 +39,6 @@ function chunk(type, data) {
   return out;
 }
 
-// CSS-equivalent curve proven to match the look:  grayscale -> contrast(C) -> brightness(B)
-const CONTRAST = 7.0;
-const BRIGHT = 1.3;
 
 // 3x3 morphology on a 0/1 ink mask
 function dilate(src, w, h) {
@@ -140,15 +137,57 @@ export function pngToLineArt(input) {
     }
   }
 
-  // 1) ink mask: luminance -> contrast/brightness curve -> threshold
-  const ink = new Uint8Array(w * h);
+  // 1a) luminance + saturation per pixel
+  const lum = new Uint8Array(w * h);
+  const sat = new Uint8Array(w * h); // 1 = clearly colored (e.g. pink petals)
+  const hist = new Uint32Array(256);
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       const i = y * stride + x * ch;
-      const lum = ch >= 3 ? 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2] : px[i];
-      let v = (lum / 255 - 0.5) * CONTRAST + 0.5;
-      v *= BRIGHT;
-      if (v < 0.45) ink[y * w + x] = 1; // dark -> ink
+      const r = px[i], g = ch >= 3 ? px[i + 1] : r, b = ch >= 3 ? px[i + 2] : r;
+      const L = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      lum[y * w + x] = L;
+      hist[L]++;
+      if (ch >= 3) {
+        // absolute chroma: pink petals ~45, red centers ~160 are "colored";
+        // near-black linework (~10) and white bg stay uncolored
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        if (mx < 252 && mx - mn > 32) sat[y * w + x] = 1;
+      }
+    }
+  // 1b) adaptive (Otsu) threshold so faint/pastel outlines survive — a fixed
+  // cutoff wiped out light-pink subjects like cherry blossoms.
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0, wB = 0, maxVar = -1, otsu = 127;
+  const totalPx = w * h;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (!wB) continue;
+    const wF = totalPx - wB;
+    if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > maxVar) { maxVar = v; otsu = t; }
+  }
+  const thr = Math.max(70, Math.min(190, otsu)); // clamp to sane line range
+  // 1c) ink = dark UNCOLORED lines + the BOUNDARY of colored regions. Colored
+  // pixels are never solid ink — a dark-red flower center becomes an outline
+  // ring, pink petals become petal outlines, while black linework stays solid.
+  // Close the colored mask first so its boundary traces smooth, not antialiased noise.
+  const satC = erode(dilate(sat, w, h), w, h);
+  const ink = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (satC[p]) {
+        const up = y > 0 ? satC[p - w] : 0, dn = y < h - 1 ? satC[p + w] : 0;
+        const lf = x > 0 ? satC[p - 1] : 0, rt = x < w - 1 ? satC[p + 1] : 0;
+        if (!(up && dn && lf && rt)) ink[p] = 1; // edge of a colored region
+      } else if (lum[p] < thr) {
+        ink[p] = 1;
+      }
     }
   // 2) morphological close (dilate then erode) to repair broken / hairline gaps
   let m = erode(dilate(ink, w, h), w, h);
