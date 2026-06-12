@@ -39,3 +39,4 @@ studio/packs/
 web-build/
 yarn-debug.*
 yarn-error.*
+studio/.ragcache/
