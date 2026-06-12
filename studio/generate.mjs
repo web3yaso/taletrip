@@ -7,14 +7,15 @@ import path from "bare-path";
 import { plugins, LLAMA_3_2_1B_INST_Q4_0, SDXL_BASE_1_0_3B_Q4_0 } from "@qvac/sdk";
 
 fs.mkdirSync("studio/packs", { recursive: true });
-const PACKS_ROOT = fs.realpathSync("studio/packs");
+export const PACKS_ROOT = fs.realpathSync("studio/packs");
 // slug user input down to a safe filename component (no path separators / traversal)
-const safeSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
+export const safeSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
 import { llmPlugin } from "@qvac/sdk/llamacpp-completion/plugin";
 import { diffusionPlugin } from "@qvac/sdk/sdcpp-generation/plugin";
+import { embeddingsPlugin } from "@qvac/sdk/llamacpp-embedding/plugin";
 import { logEvent } from "./evidence.mjs";
 
-const sdk = plugins([llmPlugin, diffusionPlugin]);
+export const sdk = plugins([llmPlugin, diffusionPlugin, embeddingsPlugin]);
 
 let enginesPromise = null;
 export function loadEngines(onProgress = () => {}) {
@@ -34,7 +35,7 @@ export function loadEngines(onProgress = () => {}) {
   return enginesPromise;
 }
 
-const sceneArc = (dest) => [
+export const sceneArc = (dest) => [
   `arriving in ${dest}: a sunny morning walk through a lively square full of color`,
   `a famous landmark in ${dest} with tall towers reaching into a bright blue sky`,
   `a green park in ${dest} with a tree, birds, and a sparkling fountain`,
@@ -49,17 +50,17 @@ const VOCAB = {
   sunset: "el atardecer", light: "la luz", city: "la ciudad", morning: "la mañana",
 };
 
-const STYLE = "children's storybook illustration, soft watercolor, warm Mediterranean colors, gentle, cute";
-const NEG = "blurry, deformed, extra limbs, ugly, text, watermark, scary";
-const DENY = /\b(kill|blood|gun|die|dead|scary|hate|weapon)\b/i;
+export const STYLE = "children's storybook illustration, soft watercolor, warm Mediterranean colors, gentle, cute";
+export const NEG = "blurry, deformed, extra limbs, ugly, text, watermark, scary";
+export const DENY = /\b(kill|blood|gun|die|dead|scary|hate|weapon)\b/i;
 
-function narrationMessages(scene, childName, dest) {
+export function narrationMessages(scene, childName, dest) {
   return [
     { role: "system", content: "Write one short storybook page for a 5-year-old: 2-3 simple, gentle sentences. Use the child's name. Keep it about the given scene. No scary content." },
     { role: "user", content: `Child: ${childName}. Place: ${dest}. Scene: ${scene}.` },
   ];
 }
-function pickVocab(text) {
+export function pickVocab(text) {
   const lower = text.toLowerCase();
   const out = [];
   for (const [en, es] of Object.entries(VOCAB)) {

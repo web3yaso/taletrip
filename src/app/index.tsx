@@ -4,8 +4,9 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
+import { setBedtime } from "@/bedtime/state";
 import { loadProfile, saveProfile, type FamilyProfile } from "@/family/profile";
-import { Btn, MuteButton, StatusChips } from "@/ui/chrome";
+import { Btn, Circ, MuteButton, StatusChips } from "@/ui/chrome";
 import { Pill } from "@/ui/chrome";
 import { Mosaic } from "@/ui/mosaic";
 import { useMuted } from "@/reading/mute";
@@ -32,7 +33,10 @@ export default function Home() {
         <Pressable onPress={() => { setP(loadProfile()); setParents(true); }}>
           <Pill icon="lock">Parents</Pill>
         </Pressable>
-        <MuteButton silent={silent} onToggle={toggleSilent} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Circ icon="moon" label="Bedtime" onPress={() => setBedtime(true)} />
+          <MuteButton silent={silent} onToggle={toggleSilent} />
+        </View>
       </View>
 
       {/* hero + title */}

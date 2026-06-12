@@ -7,7 +7,7 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-aud
 import { isMuted, subscribeMute } from "./mute";
 
 // 16-bit mono PCM samples -> WAV byte stream.
-function encodeWav(samples: number[], sampleRate: number): Uint8Array {
+export function encodeWav(samples: number[], sampleRate: number): Uint8Array {
   const dataLen = samples.length * 2;
   const buf = new ArrayBuffer(44 + dataLen);
   const view = new DataView(buf);

@@ -1,0 +1,98 @@
+[
+  {
+    "name": "LLAMA_3_2_1B_INST_Q4_0",
+    "role": "story writer (per-page narration)",
+    "device": "Mac + iPad",
+    "params": "1B",
+    "quantization": "q4_0",
+    "sizeBytes": 773025824,
+    "sizeMB": 737,
+    "sha256": "66bfbb2d48bdb77cd56bd03ef820deff3c4a74b1a09de3b917ae13e72c1a70c2",
+    "engine": "llamacpp-completion",
+    "source": "QVAC model registry"
+  },
+  {
+    "name": "QWEN3_4B_INST_Q4_K_M",
+    "role": "orchestrator agent (planning + structured tool calls)",
+    "device": "Mac",
+    "params": "4B",
+    "quantization": "q4_K_M",
+    "sizeBytes": 2497280256,
+    "sizeMB": 2382,
+    "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "engine": "llamacpp-completion",
+    "source": "QVAC model registry"
+  },
+  {
+    "name": "SDXL_BASE_1_0_3B_Q4_0",
+    "role": "illustrator (storybook watercolors)",
+    "device": "Mac",
+    "params": "3B",
+    "quantization": "Q4_0",
+    "sizeBytes": 3940010720,
+    "sizeMB": 3757,
+    "sha256": "4ab9818c9b3428eca96834c51fe294885608480991463f55bd9be53c822567c3",
+    "engine": "sdcpp-generation",
+    "source": "QVAC model registry"
+  },
+  {
+    "name": "TTS_MULTILINGUAL_SUPERTONIC2_Q8_0",
+    "role": "narrator (read-aloud EN + vocab ES)",
+    "device": "iPad",
+    "params": "",
+    "quantization": "q8_0",
+    "sizeBytes": 251845952,
+    "sizeMB": 240,
+    "sha256": "f02eec8230184523d88a85e16ff715f002e802322a89e56455693993d22a4ecf",
+    "engine": "tts-ggml",
+    "source": "QVAC model registry"
+  },
+  {
+    "name": "SMOLVLM2_500M_MULTIMODAL_Q8_0",
+    "role": "vision (scavenger hunt verify + photo captions)",
+    "device": "iPad",
+    "params": "500M",
+    "quantization": "q8_0",
+    "sizeBytes": 436808704,
+    "sizeMB": 417,
+    "sha256": "6f67b8036b2469fcd71728702720c6b51aebd759b78137a8120733b4d66438bc",
+    "engine": "llamacpp-completion",
+    "source": "QVAC model registry"
+  },
+  {
+    "name": "MMPROJ_SMOLVLM2_500M_MULTIMODAL_Q8_0",
+    "role": "vision projection (SmolVLM mmproj)",
+    "device": "iPad",
+    "params": "500M",
+    "quantization": "q8_0",
+    "sizeBytes": 108785184,
+    "sizeMB": 104,
+    "sha256": "921dc7e259f308e5b027111fa185efcbf33db13f6e35749ddf7f5cdb60ef520b",
+    "engine": "llamacpp-completion",
+    "source": "QVAC model registry"
+  },
+  {
+    "name": "EMBEDDINGGEMMA_300M_Q4_0",
+    "role": "RAG retrieval embeddings",
+    "device": "Mac + iPad",
+    "params": "300M",
+    "quantization": "q4_0",
+    "sizeBytes": 277852192,
+    "sizeMB": 265,
+    "sha256": "edc6015cb15694c27be7d1d33f1bc015db9a358ff51ed524628c027504907ba9",
+    "engine": "llamacpp-embedding",
+    "source": "QVAC model registry"
+  },
+  {
+    "name": "MedPsy-1.7B-Q4_K_M",
+    "role": "health advisor (jet-lag sleep plan for the trip)",
+    "device": "Mac",
+    "params": "1.7B",
+    "quantization": "Q4_K_M",
+    "sizeBytes": null,
+    "sizeMB": 1223,
+    "sha256": null,
+    "engine": "llamacpp-completion",
+    "source": "huggingface.co/qvac/MedPsy-1.7B-GGUF (local file load)"
+  }
+]

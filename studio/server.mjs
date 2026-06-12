@@ -9,7 +9,10 @@ import fs from "bare-fs";
 import path from "bare-path";
 import { beginRun, endRun } from "./evidence.mjs";
 import { loadEngines, generateStoryPack } from "./generate.mjs";
+import { generateStoryPackAgentic } from "./orchestrator.mjs";
 import { publishPack } from "./seeder.mjs";
+
+const AGENTIC = true; // orchestrator-agent pipeline; falls back per-request on derailment
 
 const PORT = 3000;
 fs.mkdirSync("studio/packs", { recursive: true });
@@ -86,8 +89,20 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     const emit = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
     try {
-      beginRun("generate", { destination: reqBody?.destination, childName: reqBody?.childName, pages: reqBody?.pages });
-      const pack = await generateStoryPack(reqBody, (label, step, total) => emit({ label, step, total }));
+      beginRun("generate", { destination: reqBody?.destination, childName: reqBody?.childName, pages: reqBody?.pages, agentic: AGENTIC });
+      const onP = (label, step, total) => emit({ label, step, total });
+      let pack;
+      if (AGENTIC && reqBody?.agentic !== false) {
+        try {
+          pack = await generateStoryPackAgentic(reqBody, onP);
+        } catch (e) {
+          console.log("agentic derailed, falling back:", e?.message ?? e);
+          emit({ label: "agent derailed — using the classic pipeline…", step: 0, total: 0 });
+          pack = await generateStoryPack(reqBody, onP);
+        }
+      } else {
+        pack = await generateStoryPack(reqBody, onP);
+      }
       emit({ label: "seeding over P2P…", step: 0, total: 0 });
       let pairKey = null;
       try { pairKey = (await publishPack(pack.id)).keyHex; } catch (e) { console.log("seed error:", e); }

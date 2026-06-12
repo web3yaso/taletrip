@@ -1,16 +1,20 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
+import { useBedtime } from '@/bedtime/state';
 import { Colors } from '@/constants/theme';
 
 // TaleTrip Kid app — bottom tabs. Home cover + the activity sections + the P2P
-// "Get a book" receiver. SF Symbols keep the bar crisp on iPad.
+// "Get a book" receiver. SF Symbols keep the bar crisp on iPad. During Bedtime
+// mode the bar is hidden entirely (native-level lock — kids can't wander off).
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const bedtime = useBedtime();
 
   return (
     <NativeTabs
+      hidden={bedtime}
       backgroundColor={colors.background}
       indicatorColor={colors.backgroundElement}
       labelStyle={{ selected: { color: colors.text } }}>
