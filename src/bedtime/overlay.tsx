@@ -59,10 +59,26 @@ export function BedtimeOverlay() {
     return () => clearInterval(iv);
   }, [uris.length, fade]);
 
-  const exit = useCallback(() => setBedtime(false), []);
+  // grown-up exit: hold ~2.5s. Hand-rolled timer on pressIn/pressOut — RN's
+  // onLongPress with long delays gets cancelled by tiny finger movements.
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [holding, setHolding] = useState(false);
+  const startHold = useCallback(() => {
+    setHolding(true);
+    holdTimer.current = setTimeout(() => setBedtime(false), 2500);
+  }, []);
+  const cancelHold = useCallback(() => {
+    setHolding(false);
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+  }, []);
 
   return (
-    <Pressable onLongPress={exit} delayLongPress={3000} style={{ position: "absolute", inset: 0, zIndex: 100, backgroundColor: "#14110c" }}>
+    <Pressable
+      onPressIn={startHold}
+      onPressOut={cancelHold}
+      pressRetentionOffset={{ top: 200, bottom: 200, left: 200, right: 200 }}
+      style={{ position: "absolute", inset: 0, zIndex: 100, backgroundColor: "#14110c" }}
+    >
       {uris.length ? (
         <Animated.Image
           source={{ uri: uris[idx] }}
@@ -80,8 +96,8 @@ export function BedtimeOverlay() {
         <Text style={{ fontFamily: F.displayItalic, fontSize: 22, color: "rgba(255,240,214,0.75)" }}>
           Sweet dreams 🌙 sleep tight…
         </Text>
-        <Text style={{ fontFamily: F.body, fontSize: 12.5, color: "rgba(255,240,214,0.4)" }}>
-          grown-ups: press and hold to exit
+        <Text style={{ fontFamily: F.body, fontSize: holding ? 15 : 12.5, color: holding ? "rgba(255,240,214,0.95)" : "rgba(255,240,214,0.4)" }}>
+          {holding ? "keep holding…" : "grown-ups: press and hold to exit"}
         </Text>
       </View>
     </Pressable>
