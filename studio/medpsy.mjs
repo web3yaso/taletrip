@@ -99,15 +99,22 @@ async function adviseDay(id, destination, age, shiftHours, day) {
       modelId: id, stream: false,
       generationParams: { reasoning_budget: 0 },
       history: [
-        { role: "system", content: "You are a pediatric sleep advisor helping a family beat jet lag. Output JSON only, each field 1-2 short practical sentences a parent can act on tonight. No disclaimers." },
+        { role: "system", content: "You are a pediatric sleep advisor helping a family beat jet lag. Output JSON only, each field 1-2 short practical sentences a parent can act on tonight. Behavioral guidance only — NEVER recommend medication, melatonin or any supplement. No disclaimers, no numbered lists." },
         { role: "user", content: `Child age ${age || 5}. Trip to ${destination}, time shift ${shiftHours}h. Tonight is "${day.label}", target bedtime ${day.bedtime}. Write the two advice branches.` },
       ],
       responseFormat: { type: "json_schema", json_schema: { name: "advice", schema: adviceSchema } },
     });
     const out = JSON.parse((await r.text).replace(/<think>[\s\S]*?<\/think>/g, ""));
     logEvent("completion", { model: "MedPsy-1.7B-Q4_K_M(local)", role: "sleep-advisor", day: day.label, durMs: Date.now() - t0 });
-    const ok = (s) => typeof s === "string" && s.length > 15 && s.length < 320;
-    return { advice: ok(out.advice) ? out.advice : FALLBACK.advice, adviceIfRough: ok(out.adviceIfRough) ? out.adviceIfRough : FALLBACK.adviceIfRough };
+    // guardrails: behavioral advice only (no meds/supplements), single clean sentence flow
+    const clean = (s) =>
+      String(s ?? "")
+        .replace(/^\s*\d+[.)]\s*/gm, "")
+        .replace(/\n+/g, " ")
+        .trim();
+    const ok = (s) => s.length > 15 && s.length < 320 && !/\b(melatonin|medicat|supplement|drug|pill)\b/i.test(s);
+    const a = clean(out.advice), b = clean(out.adviceIfRough);
+    return { advice: ok(a) ? a : FALLBACK.advice, adviceIfRough: ok(b) ? b : FALLBACK.adviceIfRough };
   } catch {
     return { ...FALLBACK };
   }
