@@ -57,13 +57,27 @@ export type Tonight = {
   adjustedBy: number; // minutes added by adaptation (0 if none)
 };
 
-// Which night are we on? First check-in = the morning after night 1 — so the
-// night index equals the number of check-ins since the trip's first one.
-// (Parents can also just read the full table; this only drives the highlight.)
-export function tonight(plan: SleepPlan): Tonight {
-  const log = loadSleepLog();
-  const firstArrivalIdx = plan.days.findIndex((d) => d.label.startsWith("Night 1"));
-  const idx = Math.min(plan.days.length - 1, Math.max(firstArrivalIdx, firstArrivalIdx + log.length));
+// Which night are we on? Anchored to the CALENDAR: the first check-in date is
+// the morning after Night 1, so tonight = Night (days since then + 1). Checking
+// in again today must NOT advance the night. Parents can override by tapping a
+// row in the table.
+export function tonight(plan: SleepPlan, overrideIndex?: number | null): Tonight {
+  const firstArrivalIdx = Math.max(0, plan.days.findIndex((d) => d.label.startsWith("Night 1")));
+  let idx: number;
+  if (overrideIndex != null) {
+    idx = overrideIndex;
+  } else {
+    const log = loadSleepLog();
+    if (!log.length) {
+      idx = firstArrivalIdx; // no check-ins yet -> Night 1
+    } else {
+      const first = new Date(log[0].date + "T00:00:00");
+      const now = new Date(today() + "T00:00:00");
+      const nightsSince = Math.max(0, Math.round((now.getTime() - first.getTime()) / 86400000));
+      idx = firstArrivalIdx + 1 + nightsSince; // first check-in morning -> tonight is Night 2
+    }
+  }
+  idx = Math.min(plan.days.length - 1, Math.max(0, idx));
   const day = plan.days[idx];
   const rough = todaysCheckIn()?.quality === "rough";
   const adjustedBy = rough && day.bedtime !== "—" ? 20 : 0; // rough night -> ~20min later tonight

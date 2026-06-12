@@ -276,7 +276,7 @@ export default function MyCamera() {
             ) : (
               <View style={{ flexDirection: "row", gap: 12, marginTop: 22 }}>
                 <Btn variant="secondary" icon="camera" fontSize={18} title="More photos" onPress={() => { setGen(null); setGenDone(false); }} />
-                <Btn variant="primary" icon="book" fontSize={18} title="Read my story" onPress={() => { setGen(null); setGenDone(false); router.navigate("/reader?id=my-photo-story"); }} />
+                <Btn variant="primary" icon="book" fontSize={18} title="Read my story" onPress={() => { setGen(null); setGenDone(false); router.navigate(`/reader?id=my-photo-story&ts=${Date.now()}`); }} />
               </View>
             )}
           </View>

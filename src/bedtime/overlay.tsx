@@ -112,6 +112,8 @@ export function BedtimeOverlay() {
   const [plan] = useState(loadSleepPlan);
   const [stage, setStage] = useState<"plan" | "winddown">(plan ? "plan" : "winddown");
   const [, force] = useState(0); // re-render after a check-in
+  const [dayOverride, setDayOverride] = useState<number | null>(null); // tap a row to pick tonight
+  const [feedback, setFeedback] = useState("");
 
   if (stage === "winddown") {
     return (
@@ -121,7 +123,7 @@ export function BedtimeOverlay() {
     );
   }
 
-  const t = tonight(plan!);
+  const t = tonight(plan!, dayOverride);
   const checked = todaysCheckIn();
 
   return (
@@ -161,6 +163,12 @@ export function BedtimeOverlay() {
               key={q.key}
               onPress={() => {
                 checkIn(q.key);
+                const after = tonight(plan!, dayOverride);
+                setFeedback(
+                  q.key === "rough"
+                    ? `✓ Logged. Tonight moves to ${after.bedtime} (+${after.adjustedBy || 20} min, gentler routine).`
+                    : `✓ Logged. Tonight stays at ${after.bedtime} — keep the plan.`,
+                );
                 force((x) => x + 1);
               }}
               style={{ flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 14, backgroundColor: checked?.quality === q.key ? C.accent : C.cardInset }}
@@ -170,15 +178,22 @@ export function BedtimeOverlay() {
             </Pressable>
           ))}
         </View>
+        {feedback ? (
+          <Text style={{ fontFamily: F.bodyMed, fontSize: 13.5, color: C.olive, marginTop: 8 }}>{feedback}</Text>
+        ) : null}
 
         {/* the full table */}
         <ScrollView style={{ marginTop: 14, maxHeight: 200 }} contentContainerStyle={{ gap: 6 }}>
           {plan!.days.map((d, i) => (
-            <View key={d.label} style={{ flexDirection: "row", gap: 12, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: i === t.dayIndex ? "rgba(189,88,56,0.12)" : "transparent" }}>
+            <Pressable
+              key={d.label}
+              onPress={() => setDayOverride(i)} // parent can pick which night tonight is
+              style={{ flexDirection: "row", gap: 12, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: i === t.dayIndex ? "rgba(189,88,56,0.12)" : "transparent" }}
+            >
               <Text style={{ fontFamily: F.bodySemi, fontSize: 15, color: C.accentD, minWidth: 52 }}>{d.bedtime}</Text>
               <Text style={{ flex: 1, fontFamily: F.body, fontSize: 14.5, color: C.ink }}>{d.label}</Text>
               {i === t.dayIndex ? <Icon name="moon" size={16} color={C.accentD} /> : null}
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
 

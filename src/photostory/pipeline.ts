@@ -52,10 +52,13 @@ export type GenProgress = { stage: GenStage; done: number; total: number };
 const captionPrompt =
   "Describe the main thing in this photo in ONE short, simple sentence for a children's storybook. Only the sentence, nothing else.";
 
+// Photo Story reads like the CHILD's own travel diary — first person, present
+// and excited, centered on what *I saw* in the photo (distinct from the
+// parent-generated storybook's third-person fairy-tale voice).
 function pageMessages(caption: string, profile: string, facts: string[]) {
   const context = [
-    profile && `About the child: ${profile}`,
-    facts.length && `Fun true facts you may weave in naturally: ${facts.join(" ")}`,
+    profile && `About me (the diary writer): ${profile}`,
+    facts.length && `A fun true fact I might mention: ${facts.join(" ")}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -63,10 +66,10 @@ function pageMessages(caption: string, profile: string, facts: string[]) {
     {
       role: "system",
       content:
-        "Write one short storybook page for a young child about our trip: 2-3 simple, warm sentences in a playful 'we' voice. Use the child's name if known. Keep it about the given scene. No scary content." +
+        "Write one short page of a young child's travel diary, in the FIRST person ('I'). 2-3 simple, excited sentences about what I SAW in my photo — start from the sight itself (e.g. 'Today I saw…', 'Look what I found…'). Words a 5-year-old would use. No scary content." +
         (context ? `\n${context}` : ""),
     },
-    { role: "user", content: `Scene from one of our photos: ${caption}` },
+    { role: "user", content: `What I saw in this photo: ${caption}` },
   ];
 }
 
@@ -120,19 +123,24 @@ export async function makePhotoStory(onProgress: (p: GenProgress) => void): Prom
       const run = completion({ modelId: llm, stream: false, history: pageMessages(captions[i], profile, factsPer[i]) });
       text = (await run.text).trim().split("\n").filter(Boolean)[0] ?? "";
     } catch {}
-    if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `On our trip we saw ${captions[i]}. What a wonderful day!`;
+    if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `Today I saw ${captions[i]}! It was so cool!`;
     pages.push({ index: i, image: `p${i}.jpg`, scene: captions[i], authoredNarration: text, slots: [] });
     onProgress({ stage: "write", done: i + 1, total: n });
   }
 
-  // 3) "Placing your pictures" — the child's own photos are the illustrations
+  // 3) "Placing your pictures" — the child's own photos are the illustrations.
+  // Stamped filenames: regenerating the photo story must yield new file:// uris
+  // or the RN image cache keeps showing the previous edition.
   onProgress({ stage: "place", done: 0, total: n });
   ensure(PACKS);
   const dir = new Directory(PACKS, PHOTO_STORY_ID);
   if (dir.exists) dir.delete();
   dir.create();
+  const stamp = Date.now().toString(36);
   for (let i = 0; i < n; i++) {
-    await photos[i].copy(new File(dir, `p${i}.jpg`));
+    const local = `${stamp}-p${i}.jpg`;
+    await photos[i].copy(new File(dir, local));
+    pages[i].image = local;
     onProgress({ stage: "place", done: i + 1, total: n });
   }
 

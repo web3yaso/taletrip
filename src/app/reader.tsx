@@ -62,7 +62,7 @@ function VocabCard({ wordKey, vocab, onClose, silent, onHear }: { wordKey: strin
 
 export default function Reader() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; ts?: string }>();
   const [story, setStory] = useState<ReaderStory | null>(null);
   const [page, setPage] = useState(0);
   const [word, setWord] = useState<string | null>(null);
@@ -129,7 +129,10 @@ export default function Reader() {
     return () => {
       cancelled = true;
     };
-  }, [params.id]);
+    // params.ts: navigations after receive/photo-story carry a timestamp so a
+    // SAME-ID book with fresh content forces a reload (text, images and audio)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id, params.ts]);
 
   const pg = story?.pages[page];
   const last = story ? story.pages.length - 1 : 0;

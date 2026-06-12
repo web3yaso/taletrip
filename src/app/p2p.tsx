@@ -42,7 +42,7 @@ export default function Receive() {
       const t0 = Date.now();
       const id = await receivePack(k.trim(), print);
       print(`done in ${((Date.now() - t0) / 1000).toFixed(1)}s — opening…`);
-      router.navigate(`/reader?id=${id}`);
+      router.navigate(`/reader?id=${id}&ts=${Date.now()}`);
     } catch (e: any) {
       print("❌ " + (e?.message ?? String(e)));
     }
