@@ -78,6 +78,9 @@ export async function generateStoryPack(req, onProgress = () => {}) {
 
   const { llm, sd } = await loadEngines(onProgress);
   const scenes = sceneArc(destination).slice(0, nPages);
+  const PAINT = req.quality === "high"
+    ? { width: 768, height: 768, steps: 24 }
+    : { width: 640, height: 640, steps: 20 };
   const total = scenes.length * 2;
   let step = 0;
 
@@ -105,7 +108,7 @@ export async function generateStoryPack(req, onProgress = () => {}) {
     const tp = Date.now();
     const { progressStream, outputs } = sdk.diffusion({
       modelId: sd, prompt: `${pages[i].scene}, ${STYLE}`, negative_prompt: NEG,
-      width: 768, height: 768, steps: 24, cfg_scale: 8, seed: 40 + i * 7,
+      ...PAINT, cfg_scale: 8, seed: 40 + i * 7,
     });
     for await (const tick of progressStream) {
       const tot = tick?.totalSteps ?? tick?.total;

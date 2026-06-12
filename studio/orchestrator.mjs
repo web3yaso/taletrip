@@ -159,6 +159,11 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
   const likes = (req.likes || "").trim();
   const vocabLang = req.vocabLang || "es";
   const nPages = Math.max(1, Math.min(5, Number(req.pages) || 5));
+  // fast by default (640²/20 steps ≈ 0.6× the render time); "high" for the
+  // final showcase book (768²/24)
+  const PAINT = req.quality === "high"
+    ? { width: 768, height: 768, steps: 24 }
+    : { width: 640, height: 640, steps: 20 };
 
   const { llm, sd } = await loadEngines(onProgress);
   onProgress("waking the orchestrator agent (Qwen3 4B)…");
@@ -215,7 +220,7 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     const tp = Date.now();
     const { progressStream, outputs } = sdk.diffusion({
       modelId: sd, prompt: `${scene.visual || scene.summary}, ${STYLE}`, negative_prompt: NEG,
-      width: 768, height: 768, steps: 24, cfg_scale: 8, seed: 40 + i * 7,
+      ...PAINT, cfg_scale: 8, seed: 40 + i * 7,
     });
     for await (const tick of progressStream) {
       const tot = tick?.totalSteps ?? tick?.total;

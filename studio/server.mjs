@@ -242,6 +242,9 @@ button.go:disabled{opacity:.5}
       </div>
     </div>
     <input id="dest" type="hidden"/><input id="days" type="hidden"/>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;text-transform:none;letter-spacing:0;margin-top:12px">
+      <input type="checkbox" id="hq" style="width:auto"/> Max quality illustrations (slower, for the final book)
+    </label>
     <button class="go" id="go">✨ Generate the storybook</button>
   </div>
 
@@ -311,9 +314,11 @@ document.getElementById('go').onclick=async()=>{
     likes:document.getElementById('likes').value,
     pages:Number(document.getElementById('days').value)?Math.min(5,Math.max(2,Number(document.getElementById('days').value))):5,
     vocabLang:'es',
+    quality:document.getElementById('hq').checked?'high':'fast',
   };
   fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); // persist child profile
   const go=document.getElementById('go');go.disabled=true;
+  window._genT0=Date.now();
   const prog=document.getElementById('prog');prog.style.display='block';
   const result=document.getElementById('result');clear(result);
   // don't let the PREVIOUS tale's QR pose as the new book while generating
@@ -324,7 +329,16 @@ document.getElementById('go').onclick=async()=>{
   while(true){const {done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});
     let idx;while((idx=buf.indexOf('\\n\\n'))>=0){const line=buf.slice(0,idx).replace(/^data: /,'');buf=buf.slice(idx+2);if(!line)continue;
       const ev=JSON.parse(line);
-      if(ev.label){document.getElementById('plabel').textContent=ev.label;if(ev.total)document.getElementById('pbar').style.width=Math.round(ev.step/ev.total*100)+'%';}
+      if(ev.label){
+        let eta='';
+        if(ev.total&&ev.step>0.3){
+          if(!window._genT0)window._genT0=Date.now();
+          const frac=ev.step/ev.total, left=(Date.now()-window._genT0)/frac*(1-frac);
+          if(left>5000&&frac<0.99)eta=' · ~'+(left>90000?Math.round(left/60000)+' min':Math.round(left/1000)+'s')+' left';
+        }
+        document.getElementById('plabel').textContent=ev.label+eta;
+        if(ev.total)document.getElementById('pbar').style.width=Math.round(ev.step/ev.total*100)+'%';
+      }
       if(ev.error){document.getElementById('plabel').textContent='⚠️ '+ev.error;}
       if(ev.done){renderBook(ev.pack,ev.pairKey);prog.style.display='none';packsBox.style.opacity='1';document.getElementById('packsLabel').textContent='Your tales';loadPacks();}
     }}
