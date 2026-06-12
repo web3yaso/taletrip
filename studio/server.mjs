@@ -7,10 +7,20 @@
 import http from "bare-http1";
 import fs from "bare-fs";
 import path from "bare-path";
-import { beginRun, endRun } from "./evidence.mjs";
+import { beginRun, endRun, logEvent } from "./evidence.mjs";
 import { loadEngines, generateStoryPack } from "./generate.mjs";
-import { generateStoryPackAgentic } from "./orchestrator.mjs";
+import { tzDiffFor } from "./medpsy.mjs";
+import { generateStoryPackAgentic, parseTripRequest } from "./orchestrator.mjs";
 import { publishPack } from "./seeder.mjs";
+
+// Child profile (entered once / corrected after parse) — feeds RAG personalization.
+const PROFILE_PATH = "studio/profile.json";
+function loadStudioProfile() {
+  try { return JSON.parse(fs.readFileSync(PROFILE_PATH, "utf8")); } catch { return {}; }
+}
+function saveStudioProfile(p) {
+  try { fs.writeFileSync(PROFILE_PATH, JSON.stringify(p, null, 2)); } catch {}
+}
 
 const AGENTIC = true; // orchestrator-agent pipeline; falls back per-request on derailment
 
@@ -81,6 +91,48 @@ const server = http.createServer(async (req, res) => {
     } catch { return send(res, 404, "text/plain", "not found"); }
   }
 
+  // ── trip designer: parse free text -> structured trip + merged child profile ──
+  if (req.method === "POST" && url === "/api/parse-trip") {
+    const b = await readBody(req);
+    try {
+      const parsed = await parseTripRequest(String(b.text ?? "").slice(0, 500));
+      const saved = loadStudioProfile();
+      // parsed values win when present; saved profile fills the gaps
+      const profile = {
+        childName: parsed.childName || saved.childName || "",
+        age: parsed.age || saved.age || 0,
+        gender: parsed.gender || saved.gender || "",
+        likes: parsed.likes || saved.likes || "",
+      };
+      const days = Math.max(1, parsed.days || 3);
+      const trip = {
+        destination: parsed.destination || "Barcelona",
+        days,
+        pages: Math.min(5, Math.max(2, days)),
+        tzDiff: tzDiffFor(parsed.destination || ""),
+      };
+      return send(res, 200, "application/json", JSON.stringify({ trip, profile }));
+    } catch (e) {
+      console.log("parse-trip error:", e?.message ?? e);
+      return send(res, 500, "application/json", JSON.stringify({ error: "parse failed" }));
+    }
+  }
+
+  // ── child profile persistence ──
+  if (req.method === "GET" && url === "/api/profile") {
+    return send(res, 200, "application/json", JSON.stringify(loadStudioProfile()));
+  }
+  if (req.method === "POST" && url === "/api/profile") {
+    const b = await readBody(req);
+    saveStudioProfile({
+      childName: String(b.childName ?? "").slice(0, 40),
+      age: Number(b.age) || 0,
+      gender: ["girl", "boy", ""].includes(b.gender) ? b.gender : "",
+      likes: String(b.likes ?? "").slice(0, 120),
+    });
+    return send(res, 200, "application/json", "{\"ok\":true}");
+  }
+
   // ── generate (SSE progress) ──
   if (req.method === "POST" && url === "/api/generate") {
     const reqBody = await readBody(req);
@@ -137,7 +189,7 @@ h1 .t{color:var(--accent)} .sub{font-family:var(--display);font-style:italic;col
 .badge{display:inline-flex;gap:8px;align-items:center;background:var(--card);border-radius:999px;padding:7px 14px;font-size:14px;color:var(--inkSoft);box-shadow:0 1px 0 var(--hair)}
 .card{background:var(--card);border-radius:20px;padding:26px 28px;box-shadow:0 18px 40px -24px rgba(40,55,70,.45);margin-top:22px}
 label{display:block;font-family:var(--display);font-size:20px;font-weight:600;margin:14px 0 6px}
-input{width:100%;font-family:var(--body);font-size:18px;padding:13px 16px;border:1px solid var(--hair);border-radius:14px;background:#fff;color:var(--ink)}
+input,textarea,select{width:100%;font-family:var(--body);font-size:18px;padding:13px 16px;border:1px solid var(--hair);border-radius:14px;background:#fff;color:var(--ink)}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .chip{cursor:pointer;background:var(--cardInset);border:none;border-radius:999px;padding:8px 14px;font-family:var(--body);font-size:15px;color:var(--inkSoft)}
 .row{display:flex;gap:18px} .row>div{flex:1}
@@ -168,13 +220,31 @@ button.go:disabled{opacity:.5}
 </div>
 
 <div class="card">
-  <div class="row">
-    <div><label>Destination</label><input id="dest" value="Lisbon" placeholder="any city in the world"/>
-      <div class="chips" id="chips"></div></div>
-    <div><label>Child's name</label><input id="name" value="Mia"/>
-      <label>Learning language</label><input id="lang" value="es" /></div>
+  <label style="margin-top:0">Tell me about your trip</label>
+  <textarea id="tripText" rows="2" placeholder="e.g. 下周去巴塞罗那玩 5 天，Sofia 5 岁，喜欢恐龙 — any language works"></textarea>
+  <div class="chips" id="chips"></div>
+  <button class="go" id="plan">🤖 Plan my trip</button>
+
+  <div id="tripCard" style="display:none">
+    <div class="pair" style="margin-top:14px">
+      <div id="tripSummary" style="font-size:17px"></div>
+      <div class="lbl" id="tripPlanLine" style="margin-top:6px"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Child's name</label><input id="name"/>
+        <label>Age</label><input id="age" type="number" min="2" max="12"/>
+      </div>
+      <div>
+        <label>Gender</label>
+        <select id="gender"><option value="">—</option><option value="girl">girl</option><option value="boy">boy</option></select>
+        <label>Loves (powers the personalization)</label><input id="likes" placeholder="dinosaurs, drawing…"/>
+      </div>
+    </div>
+    <input id="dest" type="hidden"/><input id="days" type="hidden"/>
+    <button class="go" id="go">✨ Generate the storybook</button>
   </div>
-  <button class="go" id="go">✨ Generate the storybook</button>
+
   <div class="prog" id="prog" style="display:none"><span id="plabel">…</span><div class="bar"><i id="pbar"></i></div></div>
   <div id="result"></div>
 </div>
@@ -183,10 +253,37 @@ button.go:disabled{opacity:.5}
 
 <script src="/qrcode.js"></script>
 <script>
-const DESTS=["Lisbon","Barcelona","Tokyo","Rome","Paris","Marrakesh"];
+const EXAMPLES=[
+  "Next week we fly to Barcelona for 5 days. Sofia is 5, she loves dinosaurs.",
+  "下周去东京玩 4 天，Mia 6 岁，女孩，喜欢画画和猫",
+  "3 jours à Paris avec Leo, 4 ans, il adore les trains",
+];
 function qrImg(text,cell){const qr=qrcode(0,'M');qr.addData(text);qr.make();const img=el('img',{class:'qr'});img.src=qr.createDataURL(cell||6,8);img.alt='pairing QR';return img;}
 const chips=document.getElementById('chips');
-DESTS.forEach(d=>{const b=document.createElement('button');b.className='chip';b.textContent=d;b.onclick=()=>document.getElementById('dest').value=d;chips.appendChild(b)});
+EXAMPLES.forEach(t=>{const b=document.createElement('button');b.className='chip';b.textContent=t.slice(0,34)+'…';b.onclick=()=>document.getElementById('tripText').value=t;chips.appendChild(b)});
+
+// trip designer: free text -> orchestrator parse -> trip card + child profile
+document.getElementById('plan').onclick=async()=>{
+  const btn=document.getElementById('plan');btn.disabled=true;btn.textContent='🤖 parsing on-device…';
+  try{
+    const r=await fetch('/api/parse-trip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:document.getElementById('tripText').value})});
+    const {trip,profile,error}=await r.json();
+    if(error)throw new Error(error);
+    document.getElementById('dest').value=trip.destination;
+    document.getElementById('days').value=trip.days;
+    document.getElementById('name').value=profile.childName;
+    document.getElementById('age').value=profile.age||'';
+    document.getElementById('gender').value=profile.gender;
+    document.getElementById('likes').value=profile.likes;
+    const sum=document.getElementById('tripSummary');clear(sum);
+    sum.appendChild(el('b',{text:'📍 '+trip.destination}));
+    sum.appendChild(document.createTextNode(' · '+trip.days+' days · '+(trip.tzDiff?('jet lag ~'+trip.tzDiff+'h'):'no jet lag')));
+    document.getElementById('tripPlanLine').textContent=
+      'Plan: '+trip.pages+'-page storybook · hunt targets · Spanish words'+(trip.tzDiff>=3?' · 🏥 MedPsy sleep plan (big time shift)':'');
+    document.getElementById('tripCard').style.display='block';
+  }catch(e){alert('parse failed: '+e.message);}
+  btn.disabled=false;btn.textContent='🤖 Plan my trip';
+};
 
 function el(tag,props,...kids){const e=document.createElement(tag);if(props)for(const k in props){if(k==='class')e.className=props[k];else if(k==='text')e.textContent=props[k];else e.setAttribute(k,props[k]);}for(const c of kids)if(c)e.appendChild(c);return e;}
 function clear(n){while(n.firstChild)n.removeChild(n.firstChild);}
@@ -206,11 +303,20 @@ async function loadPacks(){
 loadPacks();
 
 document.getElementById('go').onclick=async()=>{
-  const dest=document.getElementById('dest').value, name=document.getElementById('name').value, lang=document.getElementById('lang').value;
+  const body={
+    destination:document.getElementById('dest').value,
+    childName:document.getElementById('name').value,
+    age:Number(document.getElementById('age').value)||0,
+    gender:document.getElementById('gender').value,
+    likes:document.getElementById('likes').value,
+    pages:Number(document.getElementById('days').value)?Math.min(5,Math.max(2,Number(document.getElementById('days').value))):5,
+    vocabLang:'es',
+  };
+  fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); // persist child profile
   const go=document.getElementById('go');go.disabled=true;
   const prog=document.getElementById('prog');prog.style.display='block';
   const result=document.getElementById('result');clear(result);
-  const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destination:dest,childName:name,vocabLang:lang})});
+  const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const reader=res.body.getReader();const dec=new TextDecoder();let buf='';
   while(true){const {done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});
     let idx;while((idx=buf.indexOf('\\n\\n'))>=0){const line=buf.slice(0,idx).replace(/^data: /,'');buf=buf.slice(idx+2);if(!line)continue;

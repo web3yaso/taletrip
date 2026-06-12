@@ -64,6 +64,40 @@ const planSchema = {
   required: ["scenes"],
 };
 
+// Trip designer: parse a parent's free-text trip description into structured
+// fields (grammar-constrained — same structured tool-call pattern). The child
+// info extracted here feeds the generation-side personalization (RAG).
+const tripSchema = {
+  type: "object",
+  properties: {
+    destination: { type: "string", description: "City the family is visiting" },
+    days: { type: "integer", description: "Trip length in days; 0 if not mentioned" },
+    childName: { type: "string", description: "Child's name; empty if not mentioned" },
+    age: { type: "integer", description: "Child's age in years; 0 if not mentioned" },
+    gender: { type: "string", enum: ["girl", "boy", ""], description: "Child's gender if mentioned" },
+    likes: { type: "string", description: "Things the child loves, comma separated; empty if not mentioned" },
+  },
+  required: ["destination", "days", "childName", "age", "gender", "likes"],
+};
+
+export async function parseTripRequest(text) {
+  const orc = await loadOrchestrator();
+  const t0 = Date.now();
+  const r = sdk.completion({
+    modelId: orc, stream: false,
+    generationParams: { reasoning_budget: 0 },
+    history: [
+      { role: "system", content: "Extract trip-planning fields from the parent's message. The message may be in any language; output values in English (names stay as written). Output JSON only." },
+      { role: "user", content: text },
+    ],
+    responseFormat: { type: "json_schema", json_schema: { name: "trip", schema: tripSchema } },
+  });
+  const out = JSON.parse(await r.text);
+  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "trip-parser", durMs: Date.now() - t0, outputChars: JSON.stringify(out).length });
+  logEvent("toolCall", { tool: "parse_request", destination: out.destination, days: out.days });
+  return out;
+}
+
 // Phase A: one constrained call — the orchestrator plans the scene arc.
 async function planScenes(orc, destination, childName, nPages, likes) {
   const t0 = Date.now();
@@ -146,6 +180,7 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     const msgs = narrationMessages(scene.summary, childName, destination);
     if (facts.length) msgs[0].content += ` Weave in naturally if it fits: ${facts.join(" ")}`;
     if (likes) msgs[0].content += ` The child loves ${likes}.`;
+    if (req.gender === "girl" || req.gender === "boy") msgs[0].content += ` ${childName} is a ${req.gender}.`;
     const r = sdk.completion({ modelId: llm, history: msgs, stream: false });
     let text = (await r.text).trim().split("\n").filter(Boolean)[0] ?? "";
     logEvent("completion", { model: "LLAMA_3_2_1B_INST_Q4_0", role: "writer", page: i, durMs: Date.now() - tw, outputChars: text.length });

@@ -67,6 +67,20 @@
 `completion` 支持 `tools`（Zod schema）、`toolDialect`（qwen35/hermes/pythonic）、
 `responseFormat: json_schema`（GBNF）、MCP 客户端。注册表现成 `QWEN3_4B_INST_Q4_K_M`。
 
+### 2.3.5 行程设计器（Studio 入口，2026-06-12 加入）
+
+设计稿的 Parent 行程页以"智能行程设计器"形态落地（纯装饰 UI 不做）：
+
+```
+家长一句话（任意语言）："下周去巴塞罗那玩 5 天，Sofia 5 岁，喜欢恐龙"
+  → parse_request（Qwen3 + json_schema，零脱轨）
+  → 🤖 行程卡：目的地 · 天数 · 时差 · 内容计划（页数/寻宝/时差≥3h→MedPsy）
+  → 孩子档案表单：解析预填 + 家长校正 + studio/profile.json 持久化（一次录入）
+  → Generate 带 profile 进 agentic 管线 —— Mac 端个性化的输入源
+```
+
+孩子基本信息（名字/年龄/性别/爱好）双入口：句子里说了就自动抽取，没说用存档兜底。
+
 ### 2.4 明确不做成工具的（防 tool-washing）
 
 - TTS / playPcm：纯执行无决策

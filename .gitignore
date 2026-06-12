@@ -40,3 +40,4 @@ web-build/
 yarn-debug.*
 yarn-error.*
 studio/.ragcache/
+studio/profile.json
