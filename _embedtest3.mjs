@@ -1,0 +1,14 @@
+import { plugins, EMBEDDINGGEMMA_300M_Q4_0 } from "@qvac/sdk";
+import { embeddingsPlugin } from "@qvac/sdk/llamacpp-embedding/plugin";
+const sdk = plugins([embeddingsPlugin]);
+const t0 = Date.now();
+const mid = await sdk.loadModel({ modelSrc: EMBEDDINGGEMMA_300M_Q4_0 });
+console.log("loaded ✅ in", Date.now()-t0, "ms");
+const t1 = Date.now();
+const a = await sdk.embed({ modelId: mid, text: "a cute koi fish swimming in a pond" });
+console.log("EMBED OK dims:", a.embedding?.length, "in", Date.now()-t1, "ms");
+const b = await sdk.embed({ modelId: mid, text: "Koi are big friendly carp fish that swim in Japanese garden ponds" });
+const c = await sdk.embed({ modelId: mid, text: "The Eiffel Tower sparkles with lights every evening" });
+const cos = (x,y)=>{let d=0,nx=0,ny=0;for(let i=0;i<x.length;i++){d+=x[i]*y[i];nx+=x[i]*x[i];ny+=y[i]*y[i];}return d/Math.sqrt(nx*ny);};
+console.log("相关 cos:", cos(a.embedding,b.embedding).toFixed(3), "无关 cos:", cos(a.embedding,c.embedding).toFixed(3));
+console.log("DONE");

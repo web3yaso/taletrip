@@ -6,9 +6,11 @@
 // Memory choreography reuses the proven Hunt swap (VLM alone, then LLM+TTS).
 import { Directory, File, Paths } from "expo-file-system";
 import { beginRun, endRun } from "@/evidence/log";
+import { profileSummary } from "@/family/profile";
 import { ModelManager } from "@/models/model-manager";
 import { completion } from "@/models/qvac";
-import { markCurrent } from "@/storypack/store";
+import { retrieveFacts } from "@/rag/retrieval";
+import { currentPackId, markCurrent } from "@/storypack/store";
 import type { StoryPack } from "@/storypack/types";
 import { VOCAB } from "@/storypack/vocab";
 
@@ -50,12 +52,19 @@ export type GenProgress = { stage: GenStage; done: number; total: number };
 const captionPrompt =
   "Describe the main thing in this photo in ONE short, simple sentence for a children's storybook. Only the sentence, nothing else.";
 
-function pageMessages(caption: string) {
+function pageMessages(caption: string, profile: string, facts: string[]) {
+  const context = [
+    profile && `About the child: ${profile}`,
+    facts.length && `Fun true facts you may weave in naturally: ${facts.join(" ")}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
   return [
     {
       role: "system",
       content:
-        "Write one short storybook page for a 5-year-old about our trip: 2-3 simple, warm sentences in a playful 'we' voice. Keep it about the given scene. No scary content.",
+        "Write one short storybook page for a young child about our trip: 2-3 simple, warm sentences in a playful 'we' voice. Use the child's name if known. Keep it about the given scene. No scary content." +
+        (context ? `\n${context}` : ""),
     },
     { role: "user", content: `Scene from one of our photos: ${caption}` },
   ];
@@ -85,14 +94,30 @@ export async function makePhotoStory(onProgress: (p: GenProgress) => void): Prom
     onProgress({ stage: "look", done: i + 1, total: n });
   }
 
-  // 2) "Writing your story" — swap to the 1B LLM, one page per photo
+  // 1.5) on-device RAG — swap VLM out, EmbeddingGemma in: retrieve the family
+  // profile + destination facts for each caption, then free the embedder.
+  // (Serial model swaps keep us inside the 4GB budget at every step.)
   onProgress({ stage: "write", done: 0, total: n });
-  const { llm } = await ModelManager.exitHunt(); // drops VLM, loads LLM(+TTS)
+  await ModelManager.leaveHunt(); // drop the VLM before loading anything else
+  const profile = profileSummary();
+  const destText = currentPackId() ?? "generic";
+  const factsPer: string[][] = [];
+  for (let i = 0; i < n; i++) {
+    try {
+      factsPer.push(await retrieveFacts(destText, captions[i], 2));
+    } catch {
+      factsPer.push([]);
+    }
+  }
+  await ModelManager.dropEmbed();
+
+  // 2) "Writing your story" — swap to the 1B LLM, one page per photo
+  const { llm } = await ModelManager.enterReading(); // loads LLM(+TTS)
   const pages: StoryPack["pages"] = [];
   for (let i = 0; i < n; i++) {
     let text = "";
     try {
-      const run = completion({ modelId: llm, stream: false, history: pageMessages(captions[i]) });
+      const run = completion({ modelId: llm, stream: false, history: pageMessages(captions[i], profile, factsPer[i]) });
       text = (await run.text).trim().split("\n").filter(Boolean)[0] ?? "";
     } catch {}
     if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `On our trip we saw ${captions[i]}. What a wonderful day!`;

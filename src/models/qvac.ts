@@ -8,9 +8,11 @@ import {
   completion as _completion,
   textToSpeech as _textToSpeech,
   downloadAsset as _downloadAsset,
+  embed as _embed,
   LLAMA_3_2_1B_INST_Q4_0,
   TTS_MULTILINGUAL_SUPERTONIC2_Q8_0,
   SMOLVLM2_500M_MULTIMODAL_Q8_0, MMPROJ_SMOLVLM2_500M_MULTIMODAL_Q8_0,
+  EMBEDDINGGEMMA_300M_Q4_0,
 } from "@qvac/sdk";
 import { logEvent } from "@/evidence/log";
 
@@ -23,6 +25,9 @@ export const ttsLoad = (language: "en" | "es" = "en") => ({
   modelType: "tts" as const,
   modelConfig: { ttsEngine: "supertonic", language, voice: "F1" },
 });
+
+// EmbeddingGemma 300M — on-device RAG retrieval (~300MB, swaps in serially)
+export const EMBED_LOAD = { modelSrc: EMBEDDINGGEMMA_300M_Q4_0 };
 
 export const VLM_LOAD = {
   modelSrc: SMOLVLM2_500M_MULTIMODAL_Q8_0,
@@ -101,6 +106,14 @@ export const textToSpeech: typeof _textToSpeech = ((params: any) => {
     logEvent("tts", { model, inputChars, durMs: ms, samples: Array.isArray(val) ? val.length : -1 }),
   ) as ReturnType<typeof _textToSpeech>;
 }) as typeof _textToSpeech;
+
+export const embed: typeof _embed = (async (params: any) => {
+  const t0 = Date.now();
+  const model = idToName.get(String(params?.modelId)) ?? "unknown";
+  const r = await _embed(params);
+  logEvent("embed", { model, durMs: Date.now() - t0, dims: (r as any)?.embedding?.length ?? -1, inputChars: typeof params?.text === "string" ? params.text.length : -1 });
+  return r;
+}) as typeof _embed;
 
 export const downloadAsset: typeof _downloadAsset = (async (opts: any) => {
   const t0 = Date.now();

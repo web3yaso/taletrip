@@ -1,0 +1,39 @@
+{
+  "barcelona": [
+    "The Sagrada Família is a giant basilica in Barcelona designed by Antoni Gaudí; it has been under construction for more than 140 years and its towers look like drip sandcastles.",
+    "Park Güell is a colorful park in Barcelona full of wavy benches covered in broken-tile mosaics called trencadís; a mosaic lizard named the dragon guards the entrance.",
+    "La Rambla is a long walking street in the middle of Barcelona where street performers freeze like statues and flower stalls line the path.",
+    "Barcelona sits on the Mediterranean Sea and Barceloneta beach is right next to the city, so kids can build sandcastles after sightseeing.",
+    "Casa Batlló is a Gaudí house with a roof like a dragon's back and balconies that look like carnival masks.",
+    "Paella is a famous Spanish rice dish cooked in a wide flat pan, often yellow from saffron and topped with shrimp and peas.",
+    "Churros are fried dough sticks that Spanish kids love to dip into thick hot chocolate, especially for breakfast.",
+    "Pan con tomate is a Barcelona favorite: toasted bread rubbed with ripe tomato, olive oil and a little salt.",
+    "In Barcelona many people speak both Spanish and Catalan; 'hello' is 'hola' and 'thank you' is 'gracias'.",
+    "The Magic Fountain of Montjuïc puts on evening shows where water dances to music and changes color.",
+    "FC Barcelona plays football at Camp Nou, one of the biggest stadiums in Europe.",
+    "Barcelona's old Gothic Quarter has narrow stone streets where you can find hidden squares and gelato shops."
+  ],
+  "tokyo": [
+    "Cherry blossoms (sakura) bloom in Tokyo every spring and families have picnics under the pink trees, a tradition called hanami.",
+    "The Tokyo Skytree is one of the tallest towers in the world and looks like a giant silver needle reaching the clouds.",
+    "In Tokyo you can ride the Shinkansen bullet train, which zooms as fast as 320 km/h and always leaves exactly on time.",
+    "Sushi is rice with fish or vegetables, often wrapped in seaweed called nori; conveyor-belt sushi restaurants deliver plates on little trains.",
+    "Ramen is a hot noodle soup and slurping your noodles loudly in Japan is polite — it means the food is delicious.",
+    "At Shinto shrines in Tokyo, people ring a bell, clap twice and make a wish.",
+    "Koi are big friendly carp fish that swim in Japanese garden ponds; some live for more than 40 years.",
+    "'Hello' in Japanese is 'konnichiwa' and 'thank you' is 'arigatou'."
+  ],
+  "paris": [
+    "The Eiffel Tower in Paris sparkles with twenty thousand lights for five minutes every evening hour after dark.",
+    "Croissants are flaky crescent-shaped pastries that Parisians eat for breakfast with hot chocolate.",
+    "The Louvre is the world's biggest art museum and its entrance is a giant glass pyramid.",
+    "A baguette is a long crunchy bread stick; French law even says what a real baguette must be made of.",
+    "Kids in Paris sail little wooden boats on the round pond in the Luxembourg Gardens.",
+    "'Hello' in French is 'bonjour' and 'thank you' is 'merci'."
+  ],
+  "generic": [
+    "Airplanes fly above the clouds where the sky is always sunny, even when it rains below.",
+    "Every country has its own special foods, words and games — trying them is the best part of traveling.",
+    "Travelers say 'hello' and 'thank you' in the local language to make new friends."
+  ]
+}

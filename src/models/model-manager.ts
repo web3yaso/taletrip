@@ -1,7 +1,7 @@
 // src/models/model-manager.ts
-import { loadModel, unloadModel, LLM_LOAD, ttsLoad, VLM_LOAD } from "./qvac";
+import { loadModel, unloadModel, EMBED_LOAD, LLM_LOAD, ttsLoad, VLM_LOAD } from "./qvac";
 
-type Slot = "llm" | "tts" | "vlm";
+type Slot = "llm" | "tts" | "vlm" | "embed";
 const ids: Partial<Record<Slot, string>> = {};
 
 async function ensure(slot: Slot, opts: any): Promise<string> {
@@ -36,6 +36,10 @@ export const ModelManager = {
   // Leaving the Hunt tab: free the VLM but don't eagerly reload reading models —
   // the Reader lazily re-ensures TTS on demand (the Kid app never needs the LLM).
   async leaveHunt() { await drop("vlm"); },
+  // RAG retrieval: EmbeddingGemma 300M, loaded serially (drop before the LLM).
+  async ensureEmbed() { return ensure("embed", EMBED_LOAD); },
+  async dropEmbed() { await drop("embed"); },
+  embedId: () => ids.embed,
   llmId: () => ids.llm, ttsId: () => ids.tts, vlmId: () => ids.vlm,
-  async unloadAll() { await drop("vlm"); await drop("tts"); await drop("llm"); },
+  async unloadAll() { await drop("embed"); await drop("vlm"); await drop("tts"); await drop("llm"); },
 };
