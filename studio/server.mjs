@@ -239,6 +239,7 @@ button.go:disabled{opacity:.5}
         <label>Gender</label>
         <select id="gender"><option value="">—</option><option value="girl">girl</option><option value="boy">boy</option></select>
         <label>Loves (powers the personalization)</label><input id="likes" placeholder="dinosaurs, drawing…"/>
+        <label>Usual bedtime (for the jet-lag plan)</label><input id="bedtime" value="20:30" placeholder="20:30"/>
       </div>
     </div>
     <input id="dest" type="hidden"/><input id="days" type="hidden"/>
@@ -315,6 +316,7 @@ document.getElementById('go').onclick=async()=>{
     pages:Number(document.getElementById('days').value)?Math.min(5,Math.max(2,Number(document.getElementById('days').value))):5,
     vocabLang:'es',
     quality:document.getElementById('hq').checked?'high':'fast',
+    baseBedtime:document.getElementById('bedtime').value||'20:30',
   };
   fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); // persist child profile
   const go=document.getElementById('go');go.disabled=true;
@@ -364,6 +366,19 @@ function renderBook(pack,pairKey){
     row.appendChild(qrImg(pairKey,6));
     row.appendChild(el('code',{class:'code',text:pairKey}));
     box.appendChild(row);
+    result.appendChild(box);
+  }
+  // the book is for the kid; the jet-lag plan is for YOU
+  if(pack.sleepPlan&&pack.sleepPlan.days){
+    const sp=pack.sleepPlan;
+    const box=el('div',{class:'pair'});
+    box.appendChild(el('div',{class:'lbl',text:'🏥 Jet-lag sleep plan ('+sp.shiftHours+'h '+sp.direction+', by MedPsy on this Mac) — also on the iPad under 🌙:'}));
+    for(const d of sp.days){
+      const r=el('div',{style:'display:flex;gap:12px;margin-top:7px;font-size:15px;align-items:baseline'});
+      r.appendChild(el('b',{text:d.bedtime,style:'min-width:54px'}));
+      r.appendChild(el('span',{text:d.label+' — '+d.advice}));
+      box.appendChild(r);
+    }
     result.appendChild(box);
   }
 }

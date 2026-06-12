@@ -1,16 +1,21 @@
 // src/bedtime/overlay.tsx
-// Bedtime mode — the iPad becomes a dim photo frame: the kid's own photos and
-// the current book's illustrations cross-fade slowly while soft noise loops.
-// The tab bar is hidden while active (see app-tabs); a grown-up exits by
-// long-pressing (3s) anywhere. Optional sleep tip (MedPsy, shipped in the pack).
+// Sleep Coach (two stages, see docs/taletrip-sleep-coach-design.md):
+//   1. parent card — the MedPsy day-by-day jet-lag plan (tonight highlighted &
+//      adapted by the morning check-in), the check-in buttons, "Start wind-down"
+//   2. wind-down — dim slideshow of the kid's photos + book art, soft noise,
+//      tab bar hidden; a grown-up exits by holding ~2.5s (snoozes auto-enter
+//      for the rest of the night)
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, ScrollView, Text, View } from "react-native";
+import { Directory, File, Paths } from "expo-file-system";
 import { listPhotos } from "@/photostory/pipeline";
 import { currentPackId, listPacks, loadPackRaw, packCover } from "@/storypack/store";
-import { Directory, File, Paths } from "expo-file-system";
-import { setBedtime } from "./state";
+import { Btn } from "@/ui/chrome";
+import { Icon } from "@/ui/icon";
+import { C, F, SHADOW } from "@/ui/tokens";
+import { checkIn, loadSleepPlan, snoozeTonight, todaysCheckIn, tonight, type SleepQuality } from "./plan";
 import { startNoise, stopNoise } from "./noise";
-import { F } from "@/ui/tokens";
+import { setBedtime } from "./state";
 
 function slideUris(): string[] {
   const uris: string[] = [];
@@ -31,14 +36,15 @@ function slideUris(): string[] {
   return uris;
 }
 
-export function BedtimeOverlay() {
+const QUALITY: { key: SleepQuality; emoji: string; label: string }[] = [
+  { key: "smooth", emoji: "😴", label: "Slept well" },
+  { key: "ok", emoji: "🙂", label: "So-so" },
+  { key: "rough", emoji: "😫", label: "Rough night" },
+];
+
+// ── stage 2: wind-down ──────────────────────────────────────────────────────
+function WindDown() {
   const [uris] = useState(slideUris);
-  // tonight's sleep tip (MedPsy-generated, shipped inside the pack when present)
-  const [tip] = useState<string | undefined>(() => {
-    const id = currentPackId();
-    const raw = id ? (loadPackRaw(id) as { sleepTips?: string[] } | null) : null;
-    return raw?.sleepTips?.[0];
-  });
   const [idx, setIdx] = useState(0);
   const fade = useRef(new Animated.Value(1)).current;
 
@@ -47,7 +53,6 @@ export function BedtimeOverlay() {
     return () => stopNoise();
   }, []);
 
-  // slow cross-fade carousel: fade out -> swap -> fade in, every 8s
   useEffect(() => {
     if (uris.length < 2) return;
     const iv = setInterval(() => {
@@ -59,13 +64,16 @@ export function BedtimeOverlay() {
     return () => clearInterval(iv);
   }, [uris.length, fade]);
 
-  // grown-up exit: hold ~2.5s. Hand-rolled timer on pressIn/pressOut — RN's
-  // onLongPress with long delays gets cancelled by tiny finger movements.
+  // grown-up exit: hold ~2.5s (hand-rolled — onLongPress with long delays gets
+  // cancelled by tiny finger movements). Exiting snoozes auto-enter tonight.
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [holding, setHolding] = useState(false);
   const startHold = useCallback(() => {
     setHolding(true);
-    holdTimer.current = setTimeout(() => setBedtime(false), 2500);
+    holdTimer.current = setTimeout(() => {
+      snoozeTonight();
+      setBedtime(false);
+    }, 2500);
   }, []);
   const cancelHold = useCallback(() => {
     setHolding(false);
@@ -77,7 +85,7 @@ export function BedtimeOverlay() {
       onPressIn={startHold}
       onPressOut={cancelHold}
       pressRetentionOffset={{ top: 200, bottom: 200, left: 200, right: 200 }}
-      style={{ position: "absolute", inset: 0, zIndex: 100, backgroundColor: "#14110c" }}
+      style={{ position: "absolute", inset: 0, backgroundColor: "#14110c" }}
     >
       {uris.length ? (
         <Animated.Image
@@ -86,13 +94,8 @@ export function BedtimeOverlay() {
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: fade }}
         />
       ) : null}
-      {/* warm dim wash */}
       <View pointerEvents="none" style={{ position: "absolute", inset: 0, backgroundColor: "rgba(26,16,6,0.55)" }} />
-
       <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 46, alignItems: "center", paddingHorizontal: 60, gap: 10 }}>
-        {tip ? (
-          <Text style={{ fontFamily: F.body, fontSize: 17, color: "rgba(255,240,214,0.9)", textAlign: "center" }}>{tip}</Text>
-        ) : null}
         <Text style={{ fontFamily: F.displayItalic, fontSize: 22, color: "rgba(255,240,214,0.75)" }}>
           Sweet dreams 🌙 sleep tight…
         </Text>
@@ -101,5 +104,93 @@ export function BedtimeOverlay() {
         </Text>
       </View>
     </Pressable>
+  );
+}
+
+// ── stage 1: tonight's plan (parent card) ───────────────────────────────────
+export function BedtimeOverlay() {
+  const [plan] = useState(loadSleepPlan);
+  const [stage, setStage] = useState<"plan" | "winddown">(plan ? "plan" : "winddown");
+  const [, force] = useState(0); // re-render after a check-in
+
+  if (stage === "winddown") {
+    return (
+      <View style={{ position: "absolute", inset: 0, zIndex: 100 }}>
+        <WindDown />
+      </View>
+    );
+  }
+
+  const t = tonight(plan!);
+  const checked = todaysCheckIn();
+
+  return (
+    <View style={{ position: "absolute", inset: 0, zIndex: 100, backgroundColor: "rgba(20,17,12,0.92)", alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: 680, maxWidth: "92%", maxHeight: "92%", backgroundColor: C.card, borderRadius: 26, padding: 24, boxShadow: SHADOW.pop }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 26, color: C.ink }}>
+            🌙 Tonight's sleep plan
+          </Text>
+          <Pressable onPress={() => setBedtime(false)} style={{ padding: 8 }}>
+            <Text style={{ fontFamily: F.bodySemi, fontSize: 16, color: C.inkFaint }}>close</Text>
+          </Pressable>
+        </View>
+        <Text style={{ fontFamily: F.body, fontSize: 14, color: C.inkSoft, marginTop: 2 }}>
+          Jet lag {plan!.shiftHours}h {plan!.direction} · plan by MedPsy, on-device
+        </Text>
+
+        {/* tonight, big and actionable */}
+        <View style={{ marginTop: 14, backgroundColor: C.cardInset, borderRadius: 16, padding: 16, flexDirection: "row", alignItems: "center", gap: 16 }}>
+          <Text style={{ fontFamily: F.display, fontWeight: "700", fontSize: 40, color: C.accentD }}>{t.bedtime}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: F.bodySemi, fontSize: 16, color: C.ink }}>
+              {t.label}
+              {t.adjustedBy ? `  (+${t.adjustedBy} min after a rough night)` : ""}
+            </Text>
+            <Text style={{ fontFamily: F.body, fontSize: 14.5, color: C.inkSoft, marginTop: 3 }}>{t.advice}</Text>
+          </View>
+        </View>
+
+        {/* morning check-in */}
+        <Text style={{ fontFamily: F.bodySemi, fontSize: 15, color: C.ink, marginTop: 14 }}>
+          ☀️ How did last night go?{checked ? "  ✓ logged" : ""}
+        </Text>
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+          {QUALITY.map((q) => (
+            <Pressable
+              key={q.key}
+              onPress={() => {
+                checkIn(q.key);
+                force((x) => x + 1);
+              }}
+              style={{ flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 14, backgroundColor: checked?.quality === q.key ? C.accent : C.cardInset }}
+            >
+              <Text style={{ fontSize: 24 }}>{q.emoji}</Text>
+              <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: checked?.quality === q.key ? "#fff" : C.inkSoft, marginTop: 2 }}>{q.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* the full table */}
+        <ScrollView style={{ marginTop: 14, maxHeight: 200 }} contentContainerStyle={{ gap: 6 }}>
+          {plan!.days.map((d, i) => (
+            <View key={d.label} style={{ flexDirection: "row", gap: 12, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: i === t.dayIndex ? "rgba(189,88,56,0.12)" : "transparent" }}>
+              <Text style={{ fontFamily: F.bodySemi, fontSize: 15, color: C.accentD, minWidth: 52 }}>{d.bedtime}</Text>
+              <Text style={{ flex: 1, fontFamily: F.body, fontSize: 14.5, color: C.ink }}>{d.label}</Text>
+              {i === t.dayIndex ? <Icon name="moon" size={16} color={C.accentD} /> : null}
+            </View>
+          ))}
+        </ScrollView>
+
+        <Btn
+          variant="primary"
+          icon="moon"
+          fontSize={21}
+          title="Start wind-down"
+          onPress={() => setStage("winddown")}
+          style={{ justifyContent: "center", marginTop: 14 }}
+        />
+      </View>
+    </View>
   );
 }

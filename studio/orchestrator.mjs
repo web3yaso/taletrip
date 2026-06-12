@@ -13,7 +13,7 @@ import {
   sdk, loadEngines, narrationMessages, pickVocab,
   STYLE, NEG, DENY, PACKS_ROOT, safeSlug,
 } from "./generate.mjs";
-import { sleepTips, tzDiffFor } from "./medpsy.mjs";
+import { buildSleepPlan, tzDiffFor } from "./medpsy.mjs";
 import { retrieveFacts } from "./rag.mjs";
 
 let orchestratorPromise = null;
@@ -239,13 +239,14 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     pages, vocab: Object.values(vocabAll), huntTargets: ["tree", "tower", "boat"],
   };
 
-  // jet-lag gate: big time shift -> the MedPsy health advisor writes tonight's
-  // sleep plan; it ships in the pack and powers the iPad's Bedtime mode.
+  // jet-lag gate: big time shift -> deterministic scheduler + MedPsy advisor
+  // build the adaptive day-by-day sleep plan; it ships in the pack and powers
+  // the iPad's Sleep Coach (check-in -> branch selection happens on-device).
   const tzDiff = tzDiffFor(destination);
   if (tzDiff >= 3) {
     try {
-      onProgress(`🏥 MedPsy writing the jet-lag sleep plan (${tzDiff}h shift)…`, total, total);
-      pack.sleepTips = await sleepTips(destination, req.age, tzDiff);
+      onProgress(`🏥 building the jet-lag sleep plan (${tzDiff}h shift)…`, total, total);
+      pack.sleepPlan = await buildSleepPlan(destination, req.age, tzDiff, req.baseBedtime || "20:30", (m) => onProgress(m, total, total));
     } catch (e) {
       console.log("medpsy skipped:", e?.message ?? e);
     }

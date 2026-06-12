@@ -25,4 +25,20 @@ export type StoryPack = {
   pages: Page[];
   vocab: VocabEntry[];
   huntTargets: string[];
+  sleepPlan?: SleepPlan; // adaptive jet-lag plan (deterministic scheduler + MedPsy advice)
+};
+
+export type SleepPlanDay = {
+  label: string; // "Night 1 in Barcelona"
+  bedtime: string; // "19:30" or "—" (flight day)
+  advice: string; // MedPsy: last night went fine
+  adviceIfRough: string; // MedPsy: rough night branch
+};
+
+export type SleepPlan = {
+  shiftHours: number;
+  direction: "east" | "west";
+  childAge: number;
+  baseBedtime: string;
+  days: SleepPlanDay[];
 };
