@@ -249,7 +249,7 @@ button.go:disabled{opacity:.5}
   <div id="result"></div>
 </div>
 
-<div class="card"><label style="margin-top:0">Your tales</label><div id="packs" class="muted">loading…</div></div>
+<div class="card"><label style="margin-top:0" id="packsLabel">Your tales</label><div id="packs" class="muted">loading…</div></div>
 
 <script src="/qrcode.js"></script>
 <script>
@@ -316,6 +316,9 @@ document.getElementById('go').onclick=async()=>{
   const go=document.getElementById('go');go.disabled=true;
   const prog=document.getElementById('prog');prog.style.display='block';
   const result=document.getElementById('result');clear(result);
+  // don't let the PREVIOUS tale's QR pose as the new book while generating
+  const packsBox=document.getElementById('packs');packsBox.style.opacity='0.3';
+  document.getElementById('packsLabel').textContent='Your tales · ⏳ previous book below — the new one appears here when ready';
   const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const reader=res.body.getReader();const dec=new TextDecoder();let buf='';
   while(true){const {done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});
@@ -323,7 +326,7 @@ document.getElementById('go').onclick=async()=>{
       const ev=JSON.parse(line);
       if(ev.label){document.getElementById('plabel').textContent=ev.label;if(ev.total)document.getElementById('pbar').style.width=Math.round(ev.step/ev.total*100)+'%';}
       if(ev.error){document.getElementById('plabel').textContent='⚠️ '+ev.error;}
-      if(ev.done){renderBook(ev.pack,ev.pairKey);prog.style.display='none';loadPacks();}
+      if(ev.done){renderBook(ev.pack,ev.pairKey);prog.style.display='none';packsBox.style.opacity='1';document.getElementById('packsLabel').textContent='Your tales';loadPacks();}
     }}
   go.disabled=false;
 };

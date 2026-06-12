@@ -107,7 +107,11 @@ export async function generateStoryPack(req, onProgress = () => {}) {
       modelId: sd, prompt: `${pages[i].scene}, ${STYLE}`, negative_prompt: NEG,
       width: 768, height: 768, steps: 24, cfg_scale: 8, seed: 40 + i * 7,
     });
-    for await (const _ of progressStream) { /* drain */ }
+    for await (const tick of progressStream) {
+      const tot = tick?.totalSteps ?? tick?.total;
+      if (tick?.step && tot)
+        onProgress(`🎨 painting page ${i + 1} of ${pages.length} · brush stroke ${tick.step}/${tot}`, step - 1 + tick.step / tot, total);
+    }
     const bufs = await outputs;
     if (bufs?.[0]) fs.writeFileSync(`${outDir}/p${i}.png`, bufs[0]);
     logEvent("diffusion", { model: "SDXL_BASE_1_0_3B_Q4_0", page: i, durMs: Date.now() - tp, bytes: bufs?.[0]?.length ?? 0, size: "768x768", steps: 24 });

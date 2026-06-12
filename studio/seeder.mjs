@@ -21,26 +21,35 @@ function getSwarm() {
   return swarm;
 }
 
-// Publish studio/packs/<id> into a Hyperdrive and seed it. Returns the pear key (hex).
+// Publish studio/packs/<id> into a Hyperdrive and seed it. Returns the pear key
+// (hex). Re-publishing the same id ALWAYS re-puts the files (a regenerated book
+// must replace the old bytes in the drive) — only the swarm join happens once.
 export async function publishPack(id) {
   if (!SAFE_ID.test(id)) throw new Error("bad pack id");
-  if (published.has(id)) return { id, keyHex: published.get(id).keyHex };
 
   const dir = `studio/packs/${id}`;
   const pack = JSON.parse(fs.readFileSync(`${dir}/storypack.json`));
+  const jsonMtime = fs.statSync(`${dir}/storypack.json`).mtimeMs;
 
-  const drive = new Hyperdrive(store.namespace(id));
-  await drive.ready();
-  await drive.put("/storypack.json", fs.readFileSync(`${dir}/storypack.json`));
-  for (const pg of pack.pages) {
-    await drive.put("/" + pg.image, fs.readFileSync(`${dir}/${pg.image}`));
+  let entry = published.get(id);
+  if (!entry) {
+    const drive = new Hyperdrive(store.namespace(id));
+    await drive.ready();
+    entry = { drive, keyHex: b4a.toString(drive.key, "hex"), putMtime: 0, joined: false };
+    published.set(id, entry);
   }
-
-  const keyHex = b4a.toString(drive.key, "hex");
-  const discovery = getSwarm().join(drive.discoveryKey, { server: true, client: false });
-  await discovery.flushed();
-
-  published.set(id, { drive, keyHex });
-  console.log(`  📡 seeding "${pack.title}" → pear://${keyHex}/…`);
-  return { id, keyHex };
+  if (entry.putMtime !== jsonMtime) {
+    await entry.drive.put("/storypack.json", fs.readFileSync(`${dir}/storypack.json`));
+    for (const pg of pack.pages) {
+      await entry.drive.put("/" + pg.image, fs.readFileSync(`${dir}/${pg.image}`));
+    }
+    entry.putMtime = jsonMtime;
+    console.log(`  📡 seeding "${pack.title}" → pear://${entry.keyHex}/…`);
+  }
+  if (!entry.joined) {
+    const discovery = getSwarm().join(entry.drive.discoveryKey, { server: true, client: false });
+    await discovery.flushed();
+    entry.joined = true;
+  }
+  return { id, keyHex: entry.keyHex };
 }

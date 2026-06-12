@@ -54,23 +54,25 @@ export async function receivePack(key: string, onProgress?: (s: string) => void)
   const jsonFile = await fetchToCache(key, "storypack.json");
   const pack = JSON.parse(jsonFile.textSync()) as StoryPack;
 
-  const images = pack.pages.map((p) => p.image);
   assertSafeId(pack.id);
-  for (const name of images) assertSafeFile(name);
+  for (const pg of pack.pages) assertSafeFile(pg.image);
 
+  // fresh dir per receive, and STAMPED local image names — re-receiving a
+  // regenerated book must produce brand-new file:// uris, otherwise the RN
+  // image cache keeps showing the previous edition for the whole session.
   const dir = new Directory(PACKS, pack.id);
-  if (!dir.exists) dir.create();
-  const destJson = new File(dir, "storypack.json");
-  if (destJson.exists) destJson.delete();
-  await jsonFile.copy(destJson);
+  if (dir.exists) dir.delete();
+  dir.create();
+  const stamp = Date.now().toString(36);
 
-  for (const name of images) {
-    onProgress?.(`downloading ${name}…`);
-    const img = await fetchToCache(key, name);
-    const dest = new File(dir, name);
-    if (dest.exists) dest.delete();
-    await img.copy(dest);
+  for (const pg of pack.pages) {
+    onProgress?.(`downloading ${pg.image}…`);
+    const img = await fetchToCache(key, pg.image);
+    const local = `${stamp}-${pg.image}`;
+    await img.copy(new File(dir, local));
+    pg.image = local; // local json points at the stamped copy
   }
+  new File(dir, "storypack.json").write(JSON.stringify(pack));
 
   markCurrent(pack.id); // freshly received book becomes the Reader's default
   endRun({ packId: pack.id, pages: pack.pages.length });

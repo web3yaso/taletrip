@@ -32,6 +32,18 @@ function loadOrchestrator() {
   return orchestratorPromise;
 }
 
+// free the 4B orchestrator before the heavy SDXL painting loop — less memory
+// pressure on the worker; it reloads (~10s) on the next request's planning.
+async function unloadOrchestrator() {
+  if (!orchestratorPromise) return;
+  try {
+    const id = await orchestratorPromise;
+    await sdk.unloadModel({ modelId: id });
+    logEvent("unloadModel", { model: "QWEN3_4B_INST_Q4_K_M" });
+  } catch {}
+  orchestratorPromise = null;
+}
+
 // Structured tool calling: Qwen3 is a thinking model whose free-form tool-call
 // emissions don't match the SDK's dialect parsers (verified: bare
 // `lookup_facts("…")` text under pythonic/hermes both parse to []). Instead the
@@ -164,15 +176,24 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
   if (outDir !== PACKS_ROOT && !outDir.startsWith(PACKS_ROOT + path.sep)) throw new Error("bad pack id");
   fs.mkdirSync(outDir, { recursive: true });
 
+  // research ALL pages first (the agent decides each lookup), then free the 4B
+  // orchestrator before the heavy SDXL loop — less memory pressure = faster paints.
+  const factsPer = [];
+  for (let i = 0; i < scenes.length; i++) {
+    onProgress(`🤖 researching page ${i + 1}…`, ++step, total);
+    try {
+      factsPer.push(await researchScene(orc, destination, scenes[i].summary, (line) => onProgress(line, step, total)));
+    } catch {
+      factsPer.push([]);
+    }
+  }
+  await unloadOrchestrator();
+
   const pages = [];
   const vocabAll = {};
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
-
-    // research (agent-decided tool calls)
-    onProgress(`🤖 researching page ${i + 1}…`, ++step, total);
-    let facts = [];
-    try { facts = await researchScene(orc, destination, scene.summary, (line) => onProgress(line, step, total)); } catch {}
+    const facts = factsPer[i] ?? [];
 
     // write (delegated to the 1B writer agent)
     onProgress(`✍️ writing page ${i + 1} of ${scenes.length}…`, ++step, total);
@@ -188,14 +209,19 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     for (const v of pickVocab(text)) vocabAll[v.word] = v;
     pages.push({ index: i, image: `p${i}.png`, scene: scene.summary, authoredNarration: text, slots: [] });
 
-    // paint (illustrator agent)
+    // paint (illustrator agent) — stream per-denoise-step ticks so the bar
+    // moves smoothly through the ~1min render instead of freezing
     onProgress(`🎨 painting page ${i + 1} of ${scenes.length}…`, ++step, total);
     const tp = Date.now();
     const { progressStream, outputs } = sdk.diffusion({
       modelId: sd, prompt: `${scene.visual || scene.summary}, ${STYLE}`, negative_prompt: NEG,
       width: 768, height: 768, steps: 24, cfg_scale: 8, seed: 40 + i * 7,
     });
-    for await (const _ of progressStream) { /* drain */ }
+    for await (const tick of progressStream) {
+      const tot = tick?.totalSteps ?? tick?.total;
+      if (tick?.step && tot)
+        onProgress(`🎨 painting page ${i + 1} of ${scenes.length} · brush stroke ${tick.step}/${tot}`, step - 1 + tick.step / tot, total);
+    }
     const bufs = await outputs;
     if (bufs?.[0]) fs.writeFileSync(`${outDir}/p${i}.png`, bufs[0]);
     logEvent("diffusion", { model: "SDXL_BASE_1_0_3B_Q4_0", role: "illustrator", page: i, durMs: Date.now() - tp, bytes: bufs?.[0]?.length ?? 0 });
