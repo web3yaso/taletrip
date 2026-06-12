@@ -110,6 +110,7 @@ async function adviseDay(id, destination, age, shiftHours, day) {
     const clean = (s) =>
       String(s ?? "")
         .replace(/^\s*\d+[.)]\s*/gm, "")
+        .replace(/([.!?])\s*\d+[.)]\s*/g, "$1 ") // inline "…onset.2. Keep…" residue
         .replace(/\n+/g, " ")
         .trim();
     const ok = (s) => s.length > 15 && s.length < 320 && !/\b(melatonin|medicat|supplement|drug|pill)\b/i.test(s);
