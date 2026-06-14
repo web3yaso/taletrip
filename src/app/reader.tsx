@@ -195,7 +195,7 @@ export default function Reader() {
 
       {/* top bar */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 22, paddingHorizontal: 26, paddingBottom: 6 }}>
-        <Circ icon="back" label="Home" onPress={() => router.back()} />
+        <Circ icon="back" label="Home" onPress={() => router.navigate("/")} />
         <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 27, color: C.ink }} numberOfLines={1}>
           {story.title}
         </Text>
@@ -256,7 +256,7 @@ export default function Reader() {
         {page < last ? (
           <Btn variant="primary" title="Next" iconRight="fwd" onPress={() => setPage((p) => Math.min(last, p + 1))} />
         ) : (
-          <Btn variant="accent" icon="star" iconFill title="Play Activities" onPress={() => router.back()} />
+          <Btn variant="accent" icon="star" iconFill title="Play Activities" onPress={() => router.navigate("/activities")} />
         )}
       </View>
 
