@@ -6,11 +6,10 @@
 // Memory choreography reuses the proven Hunt swap (VLM alone, then LLM+TTS).
 import { Directory, File, Paths } from "expo-file-system";
 import { beginRun, endRun } from "@/evidence/log";
-import { profileSummary } from "@/family/profile";
+import { loadProfile } from "@/family/profile";
 import { ModelManager } from "@/models/model-manager";
 import { completion } from "@/models/qvac";
-import { retrieveFacts } from "@/rag/retrieval";
-import { currentPackId, markCurrent } from "@/storypack/store";
+import { markCurrent } from "@/storypack/store";
 import type { StoryPack } from "@/storypack/types";
 import { VOCAB } from "@/storypack/vocab";
 
@@ -48,28 +47,24 @@ const DENY = /\b(kill|blood|gun|die|dead|scary|hate|weapon)\b/i;
 export type GenStage = "look" | "write" | "place" | "words";
 export type GenProgress = { stage: GenStage; done: number; total: number };
 
-// SmolVLM strict caption prompt (small VLMs need tight instructions)
+// SmolVLM caption prompt — name the concrete object(s) actually visible, so the
+// writer has something real to anchor to (a weak caption makes the LLM invent).
 const captionPrompt =
-  "Describe the main thing in this photo in ONE short, simple sentence for a children's storybook. Only the sentence, nothing else.";
+  "Look at this photo. Name the main object you actually see, in 3-6 words. Just the object, e.g. 'a red toy car' or 'a brown teddy bear'. No story, no guessing.";
 
-// Photo Story reads like the CHILD's own travel diary — first person, present
-// and excited, centered on what *I saw* in the photo (distinct from the
-// parent-generated storybook's third-person fairy-tale voice).
-function pageMessages(caption: string, profile: string, facts: string[]) {
-  const context = [
-    profile && `About me (the diary writer): ${profile}`,
-    facts.length && `A fun true fact I might mention: ${facts.join(" ")}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+// Photo Story = the CHILD's own travel diary: first person, excited, about the
+// THING IN THE PHOTO only. No destination trivia (the kid photographed a toy,
+// not a landmark) — that was the bug where a RAG "fact" became the opening line.
+function pageMessages(caption: string, childName: string) {
   return [
     {
       role: "system",
       content:
-        "Write one short page of a young child's travel diary, in the FIRST person ('I'). 2-3 simple, excited sentences about what I SAW in my photo — start from the sight itself (e.g. 'Today I saw…', 'Look what I found…'). Words a 5-year-old would use. No scary content." +
-        (context ? `\n${context}` : ""),
+        `Write 2-3 short sentences of a child's travel diary, first person ("I"). The child${childName ? ` (${childName})` : ""} is describing this photo they just took. ` +
+        `Start from the object in the photo and stay ONLY about it — do NOT mention any city, landmark, or place that is not in the photo. ` +
+        `Simple, happy words a 5-year-old would use. Begin like "Today I saw…" or "Look! I found…".`,
     },
-    { role: "user", content: `What I saw in this photo: ${caption}` },
+    { role: "user", content: `The photo shows: ${caption}. Write my diary page about it.` },
   ];
 }
 
@@ -92,35 +87,23 @@ export async function makePhotoStory(onProgress: (p: GenProgress) => void): Prom
       });
       cap = (await run.text).trim().split("\n").filter(Boolean)[0] ?? "";
     } catch {}
-    if (cap.length < 5 || cap.length > 200 || DENY.test(cap)) cap = "something wonderful we saw on our trip";
+    if (cap.length < 5 || cap.length > 200 || DENY.test(cap)) cap = "a really cool thing";
     captions.push(cap);
     onProgress({ stage: "look", done: i + 1, total: n });
   }
 
-  // 1.5) on-device RAG — swap VLM out, EmbeddingGemma in: retrieve the family
-  // profile + destination facts for each caption, then free the embedder.
-  // (Serial model swaps keep us inside the 4GB budget at every step.)
+  // 2) "Writing your story" — swap VLM out, 1B LLM in; one diary page per photo.
+  // No RAG here: the diary is strictly about the photographed object (destination
+  // facts caused "you're standing in a town square" injected over a toy photo).
   onProgress({ stage: "write", done: 0, total: n });
-  await ModelManager.leaveHunt(); // drop the VLM before loading anything else
-  const profile = profileSummary();
-  const destText = currentPackId() ?? "generic";
-  const factsPer: string[][] = [];
-  for (let i = 0; i < n; i++) {
-    try {
-      factsPer.push(await retrieveFacts(destText, captions[i], 2));
-    } catch {
-      factsPer.push([]);
-    }
-  }
-  await ModelManager.dropEmbed();
-
-  // 2) "Writing your story" — swap to the 1B LLM, one page per photo
+  await ModelManager.leaveHunt(); // drop the VLM before loading the writer
+  const childName = loadProfile().childName;
   const { llm } = await ModelManager.enterReading(); // loads LLM(+TTS)
   const pages: StoryPack["pages"] = [];
   for (let i = 0; i < n; i++) {
     let text = "";
     try {
-      const run = completion({ modelId: llm, stream: false, history: pageMessages(captions[i], profile, factsPer[i]) });
+      const run = completion({ modelId: llm, stream: false, history: pageMessages(captions[i], childName) });
       text = (await run.text).trim().split("\n").filter(Boolean)[0] ?? "";
     } catch {}
     if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `Today I saw ${captions[i]}! It was so cool!`;
