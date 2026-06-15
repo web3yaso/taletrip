@@ -55,6 +55,9 @@ export type Tonight = {
   bedtime: string; // adjusted by the latest check-in
   advice: string; // the MedPsy branch matching the check-in
   adjustedBy: number; // minutes added by adaptation (0 if none)
+  nap?: string; // deterministic daytime nap window for this day
+  light?: string; // deterministic light-timing tip for this day
+  phase?: "pre" | "arrival" | "home";
 };
 
 // Which night are we on? Anchored to the CALENDAR: the first check-in date is
@@ -87,6 +90,9 @@ export function tonight(plan: SleepPlan, overrideIndex?: number | null): Tonight
     bedtime: day.bedtime === "—" ? day.bedtime : toHHMM(toMin(day.bedtime) + adjustedBy),
     advice: rough ? day.adviceIfRough : day.advice,
     adjustedBy,
+    nap: day.nap,
+    light: day.light,
+    phase: day.phase,
   };
 }
 

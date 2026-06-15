@@ -1,0 +1,178 @@
+{
+  "id": "barcelona-sofia",
+  "version": 1,
+  "checksum": "sha256:dev",
+  "title": "Sofia's trip to Barcelona",
+  "narrationLang": "en",
+  "vocabLang": "es",
+  "ageRange": [
+    4,
+    7
+  ],
+  "pages": [
+    {
+      "index": 0,
+      "image": "p0.png",
+      "scene": "Sofia arrives in Barcelona and is immediately captivated by the colorful streets and the sight of a local artist painting.",
+      "authoredNarration": "Sofia bounced through the Barcelona streets, her red shoes clicking with excitement. \"Wow! What's all the fuss about?\" she asked her mom.",
+      "slots": []
+    },
+    {
+      "index": 1,
+      "image": "p1.png",
+      "scene": "Sofia visits the Sagrada Família and is inspired by the intricate architecture, which she draws in her notebook with her dinosaur-themed pencil.",
+      "authoredNarration": "Sofia the Small Mouse, wearing her favorite dinosaur hat, ",
+      "slots": []
+    },
+    {
+      "index": 2,
+      "image": "p2.png",
+      "scene": "Sofia explores the Park Güell and finds a hidden spot where she can draw her favorite dinosaur in the grass under the colorful arches.",
+      "authoredNarration": "Sofia danced down the winding path,",
+      "slots": []
+    },
+    {
+      "index": 3,
+      "image": "p3.png",
+      "scene": "Sofia tries a delicious Spanish meal at a small tapas restaurant and is surprised by the flavors, which she tries to capture in her drawings.",
+      "authoredNarration": "Sofia sat at a tiny table by the window in a cozy tapas restaurant in Barcelona's famous Gothic Quarter. She ordered a plate of churros and a rich, dark hot chocolate, and took a sip with a happy sigh. The first bite of the crispy fried dough sticks was like a party in her mouth – sweet, crunchy, and utterly delicious!",
+      "slots": []
+    },
+    {
+      "index": 4,
+      "image": "p4.png",
+      "scene": "Sofia walks through the streets of Barcelona in the evening and is amazed by the lights and the city’s peaceful atmosphere, which she draws in her notebook.",
+      "authoredNarration": "Sofia zoomed her scooter through the Barcelona streets, the sunset casting a golden glow over the towering Sagrada Família, a giant basilica in the distance. \"Wow!\" she squealed, \"I'm almost there!\"",
+      "slots": []
+    }
+  ],
+  "vocab": [
+    {
+      "word": "sunset",
+      "translation": "el atardecer",
+      "say": "el atardecer"
+    }
+  ],
+  "huntTargets": [
+    "tree",
+    "tower",
+    "boat"
+  ],
+  "sleepPlan": {
+    "shiftHours": 8,
+    "direction": "east",
+    "childAge": 5,
+    "baseBedtime": "20:30",
+    "destination": "Barcelona",
+    "days": [
+      {
+        "phase": "pre",
+        "label": "2 nights before",
+        "bedtime": "20:00",
+        "nap": "",
+        "light": "Catch early-morning light; dim lights ~30 min earlier each evening",
+        "advice": "Bright light at bedside helps reset your clock earlier for morning.",
+        "adviceIfRough": "Gentle dim light and quiet sleep tonight to support adjustment."
+      },
+      {
+        "phase": "pre",
+        "label": "1 night before",
+        "bedtime": "19:30",
+        "nap": "",
+        "light": "Catch early-morning light; dim lights ~30 min earlier each evening",
+        "advice": "Child needs calm evening wind-down, dim light, no screens, then gentle bedtime routine.",
+        "adviceIfRough": "Offer extra comfort, quiet room, maybe a soft pat on cheek, no extra demands."
+      },
+      {
+        "phase": "pre",
+        "label": "✈️ Flight day",
+        "bedtime": "—",
+        "nap": "Nap on the plane only during the destination's night-time",
+        "light": "Set watches to destination time on takeoff",
+        "advice": "This is a great time to rest in darkness.",
+        "adviceIfRough": "Even better: dim night lights gently."
+      },
+      {
+        "phase": "arrival",
+        "label": "Night 1 in Barcelona",
+        "bedtime": "21:38",
+        "nap": "Short nap OK 13:00–13:30 local · ≤30 min, none after 15:00",
+        "light": "Bright light first thing 7–9am local · dim screens & lights after dinner",
+        "advice": "Your child's natural rhythm is settling in.",
+        "adviceIfRough": "Last night was bumpy, so go a little slower tonight with extra cuddles — it settles within a few days."
+      },
+      {
+        "phase": "arrival",
+        "label": "Night 2 in Barcelona",
+        "bedtime": "21:15",
+        "nap": "Short nap OK 13:00–13:30 local · ≤30 min, none after 15:00",
+        "light": "Bright light first thing 7–9am local · dim screens & lights after dinner",
+        "advice": "Keep dim lights and soft sounds to gently guide sleep in Barcelona's rhythm.",
+        "adviceIfRough": "Offer a calm wind-down and avoid bright lights now."
+      },
+      {
+        "phase": "arrival",
+        "label": "Night 3 in Barcelona",
+        "bedtime": "20:53",
+        "nap": "Try to skip naps today — push through to tonight's target",
+        "light": "Bright light first thing 7–9am local · dim screens & lights after dinner",
+        "advice": "Today's gentle night routine: dim lights, quiet room, warm bath.",
+        "adviceIfRough": "Last night was bumpy, so go a little slower tonight with extra cuddles — it settles within a few days."
+      },
+      {
+        "phase": "arrival",
+        "label": "Night 4 in Barcelona",
+        "bedtime": "20:30",
+        "nap": "Try to skip naps today — push through to tonight's target",
+        "light": "Bright light first thing 7–9am local · dim screens & lights after dinner",
+        "advice": "Tonight's calm, steady routine is nudging their body clock the right way — keep it gentle.",
+        "adviceIfRough": "Last night was bumpy, so go a little slower tonight with extra cuddles — it settles within a few days."
+      },
+      {
+        "phase": "home",
+        "label": "✈️ Fly home",
+        "bedtime": "—",
+        "nap": "Nap on the plane only during the destination's night-time",
+        "light": "Soak up afternoon/evening light 4–7pm local · keep the morning dim",
+        "advice": "Fly home tonight to reset your clock gently with morning light and calm evening rest.",
+        "adviceIfRough": "Keep lights dim and avoid strong daytime cues tonight."
+      },
+      {
+        "phase": "home",
+        "label": "Home night 1",
+        "bedtime": "19:30",
+        "nap": "Short nap OK 13:00–13:30 local · ≤30 min, none after 15:00",
+        "light": "Soak up afternoon/evening light 4–7pm local · keep the morning dim",
+        "advice": "Gentle blue light in morning, warm evening calm, short nap okay.",
+        "adviceIfRough": "If last night was rough, keep tonight quiet and reassuring — their clock is finding home again."
+      },
+      {
+        "phase": "home",
+        "label": "Home night 2",
+        "bedtime": "20:00",
+        "nap": "Short nap OK 13:00–13:30 local · ≤30 min, none after 15:00",
+        "light": "Soak up afternoon/evening light 4–7pm local · keep the morning dim",
+        "advice": "Gentle wake-up, no extra sleep, dim lights, wind-down routine.",
+        "adviceIfRough": "Offer short nap, extra calm time, maybe a little dim light and quiet."
+      },
+      {
+        "phase": "home",
+        "label": "Home night 3",
+        "bedtime": "20:30",
+        "nap": "Try to skip naps today — push through to tonight's target",
+        "light": "Soak up afternoon/evening light 4–7pm local · keep the morning dim",
+        "advice": "Tonight is home night 3 - bright morning light and calm dim evening help your body adjust smoothly.",
+        "adviceIfRough": "Skip the extra bright light and keep the room dimmer for gentler adjustment."
+      },
+      {
+        "phase": "home",
+        "label": "Back to normal",
+        "bedtime": "20:30",
+        "nap": "",
+        "light": "Normal routine — jet lag beaten 🎉",
+        "advice": "Back home, a steady dim-light routine helps them slide back into their normal sleep.",
+        "adviceIfRough": "Gentle night tonight, no pressure."
+      }
+    ]
+  }
+}

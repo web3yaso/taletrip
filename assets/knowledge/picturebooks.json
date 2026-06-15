@@ -1,0 +1,101 @@
+{
+  "note": "Shared picture-book STYLE reference for the on-device style RAG. The parent names books their child loves; EmbeddingGemma retrieves the closest entries and the writer borrows the STYLE (cadence, devices, vocabulary) — never the text. Used by Studio (main bilingual book) and the iPad (Photo Story).",
+  "books": [
+    {
+      "title": "Brown Bear, Brown Bear, What Do You See?",
+      "author": "Bill Martin Jr. & Eric Carle",
+      "tags": ["animals", "colors", "toddler", "call-and-response"],
+      "style": "A call-and-response chant: each page asks 'what do you see?' and answers with a brightly colored animal that introduces the next. Predictable, soothing, endlessly repeatable.",
+      "devices": ["repetition", "question-and-answer", "color words", "chaining"],
+      "sample": "Brown Bear, Brown Bear, what do you see? I see a red bird looking at me."
+    },
+    {
+      "title": "The Very Hungry Caterpillar",
+      "author": "Eric Carle",
+      "tags": ["counting", "food", "nature", "growth"],
+      "style": "A gentle counting tale across the days of the week, naming foods one by one, ending in a hopeful transformation. Simple sentences, sensory food words, a satisfying arc.",
+      "devices": ["counting", "days of the week", "cumulative list", "transformation ending"],
+      "sample": "On Monday he ate through one apple, but he was still hungry."
+    },
+    {
+      "title": "Where the Wild Things Are",
+      "author": "Maurice Sendak",
+      "tags": ["imagination", "adventure", "feelings", "home"],
+      "style": "A small child's imagination grows a whole wild world and then sails safely home to love and supper. Lyrical, a little mischievous, big feelings made gentle.",
+      "devices": ["imaginative journey", "rhythmic prose", "return-home arc"],
+      "sample": "And now, cried Max, let the wild rumpus start!"
+    },
+    {
+      "title": "Goodnight Moon",
+      "author": "Margaret Wise Brown",
+      "tags": ["bedtime", "calm", "toddler", "naming"],
+      "style": "A hushed bedtime litany that says goodnight to every little thing in the room. Slow, tender, lulling — perfect for winding down.",
+      "devices": ["repetition", "naming objects", "rhyme", "soft cadence"],
+      "sample": "Goodnight room. Goodnight moon. Goodnight cow jumping over the moon."
+    },
+    {
+      "title": "The Gruffalo",
+      "author": "Julia Donaldson & Axel Scheffler",
+      "tags": ["adventure", "cleverness", "animals", "courage"],
+      "style": "A bouncy, rhyming romp where a clever little mouse outwits bigger creatures with quick wit. Strong meter, playful rhyme, a brave small hero.",
+      "devices": ["rhyme", "strong rhythm", "repeated refrain", "clever twist"],
+      "sample": "A mouse took a stroll through the deep dark wood."
+    },
+    {
+      "title": "We're Going on a Bear Hunt",
+      "author": "Michael Rosen & Helen Oxenbury",
+      "tags": ["adventure", "nature", "sounds", "family"],
+      "style": "A rhythmic outdoor adventure full of sound words as a family wades through grass, river, and mud. Chantable, repetitive, full of motion and onomatopoeia.",
+      "devices": ["repeated refrain", "onomatopoeia", "call-and-response", "journey-and-back"],
+      "sample": "Swishy swashy! We can't go over it, we can't go under it, we've got to go through it!"
+    },
+    {
+      "title": "Guess How Much I Love You",
+      "author": "Sam McBratney & Anita Jeram",
+      "tags": ["love", "family", "bedtime", "tender"],
+      "style": "A tender bedtime exchange where a little hare and big hare measure their love in playful comparisons. Warm, simple, reassuring.",
+      "devices": ["comparison", "loving repetition", "gentle one-upmanship"],
+      "sample": "I love you right up to the moon — and back."
+    },
+    {
+      "title": "Dear Zoo",
+      "author": "Rod Campbell",
+      "tags": ["animals", "toddler", "surprise", "lift-the-flap"],
+      "style": "A repeating pattern where the zoo keeps sending the wrong pet until the perfect one arrives. Tiny sentences, animal traits, a satisfying just-right ending.",
+      "devices": ["repetition", "pattern-and-variation", "animal traits", "just-right ending"],
+      "sample": "So they sent me a lion. He was too fierce! I sent him back."
+    },
+    {
+      "title": "The Snail and the Whale",
+      "author": "Julia Donaldson & Axel Scheffler",
+      "tags": ["adventure", "ocean", "friendship", "small-but-mighty"],
+      "style": "A rhyming voyage where a tiny snail sees the wide world on a whale's tail and proves the small can do great things. Sweeping imagery, steady rhyme, big-hearted.",
+      "devices": ["rhyme", "vivid imagery", "small-hero theme", "refrain"],
+      "sample": "This is the tale of a tiny snail and a great big, grey-blue humpback whale."
+    },
+    {
+      "title": "Room on the Broom",
+      "author": "Julia Donaldson & Axel Scheffler",
+      "tags": ["adventure", "friendship", "kindness", "animals"],
+      "style": "A rhyming ride where a kind witch makes room for one friend after another, and their teamwork saves the day. Cumulative, rhythmic, warm about kindness.",
+      "devices": ["rhyme", "cumulative cast", "repeated refrain", "teamwork payoff"],
+      "sample": "Down fell the hat, and down fell the bow. Is there room on the broom for a dog like me?"
+    },
+    {
+      "title": "Each Peach Pear Plum",
+      "author": "Janet & Allan Ahlberg",
+      "tags": ["rhyme", "seek-and-find", "nursery", "toddler"],
+      "style": "A rhyming I-spy that hides familiar nursery characters on each page. Short, musical couplets that invite the child to look and find.",
+      "devices": ["rhyme", "I-spy", "nursery references", "couplets"],
+      "sample": "Each Peach Pear Plum, I spy Tom Thumb."
+    },
+    {
+      "title": "The Tiger Who Came to Tea",
+      "author": "Judith Kerr",
+      "tags": ["everyday-magic", "food", "family", "surprise"],
+      "style": "An ordinary afternoon turned wonderfully strange when a big friendly tiger drops in and eats everything. Cozy domestic detail, matter-of-fact magic, gentle humor.",
+      "devices": ["everyday-magic", "cumulative eating", "cozy detail", "gentle humor"],
+      "sample": "And then the doorbell rang. It was a big, furry, stripy tiger."
+    }
+  ]
+}

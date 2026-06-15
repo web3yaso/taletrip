@@ -67,3 +67,33 @@ export async function retrieveFacts(destination, topic, k = 2) {
   logEvent("ragSearch", { model: "EMBEDDINGGEMMA_300M_Q4_0", topic: String(topic).slice(0, 60), hits: hits.length, durMs: Date.now() - t0 });
   return hits.map((h) => h.text);
 }
+
+// ── picture-book STYLE RAG ──────────────────────────────────────────────────
+// The parent names books their child loves; EmbeddingGemma matches them against
+// a shared style corpus and the writer borrows the cadence/devices (never text).
+const PICTUREBOOKS = JSON.parse(fs.readFileSync("assets/knowledge/picturebooks.json", "utf8")).books;
+const pbText = (b) => `${b.title} by ${b.author}. Themes: ${b.tags.join(", ")}. ${b.style} Devices: ${b.devices.join(", ")}.`;
+const pbGuide = (b) => `Write in the warm style of beloved picture books like "${b.title}": ${b.style} Lean on devices such as ${b.devices.slice(0, 3).join(", ")}.`;
+let pbVecs = null; // in-memory corpus embeddings (tiny)
+
+export async function retrieveStyle(favoriteBooks) {
+  const q = String(favoriteBooks || "").trim();
+  if (!q || !PICTUREBOOKS.length) return "";
+  const t0 = Date.now();
+  try {
+    const id = await ensureEmbedder();
+    if (!pbVecs) {
+      pbVecs = [];
+      for (const b of PICTUREBOOKS) pbVecs.push({ b, vec: (await sdk.embed({ modelId: id, text: pbText(b) })).embedding });
+    }
+    const qv = (await sdk.embed({ modelId: id, text: q })).embedding;
+    const best = pbVecs.map((e) => ({ b: e.b, score: cosine(qv, e.vec) })).sort((a, b) => b.score - a.score)[0];
+    if (!best) return "";
+    logEvent("ragSearch", { model: "EMBEDDINGGEMMA_300M_Q4_0", kind: "picturebook-style", query: q.slice(0, 48), matched: best.b.title, durMs: Date.now() - t0 });
+    return pbGuide(best.b);
+  } catch {
+    const ql = q.toLowerCase(); // model-free fallback: substring title match
+    const b = PICTUREBOOKS.find((x) => ql.includes(x.title.toLowerCase().slice(0, 12)) || x.title.toLowerCase().includes(ql));
+    return b ? pbGuide(b) : "";
+  }
+}

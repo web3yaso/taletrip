@@ -125,6 +125,7 @@ export function BedtimeOverlay() {
 
   const t = tonight(plan!, dayOverride);
   const checked = todaysCheckIn();
+  const dest = plan!.destination ?? "Your trip";
 
   return (
     <View style={{ position: "absolute", inset: 0, zIndex: 100, backgroundColor: "rgba(20,17,12,0.92)", alignItems: "center", justifyContent: "center" }}>
@@ -138,19 +139,34 @@ export function BedtimeOverlay() {
           </Pressable>
         </View>
         <Text style={{ fontFamily: F.body, fontSize: 14, color: C.inkSoft, marginTop: 2 }}>
-          Jet lag {plan!.shiftHours}h {plan!.direction} · plan by MedPsy, on-device
+          {dest} runs {plan!.shiftHours}h {plan!.direction === "east" ? "ahead" : "behind"} — live by local time · plan by MedPsy, on-device
         </Text>
 
         {/* tonight, big and actionable */}
-        <View style={{ marginTop: 14, backgroundColor: C.cardInset, borderRadius: 16, padding: 16, flexDirection: "row", alignItems: "center", gap: 16 }}>
-          <Text style={{ fontFamily: F.display, fontWeight: "700", fontSize: 40, color: C.accentD }}>{t.bedtime}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: F.bodySemi, fontSize: 16, color: C.ink }}>
-              {t.label}
-              {t.adjustedBy ? `  (+${t.adjustedBy} min after a rough night)` : ""}
-            </Text>
-            <Text style={{ fontFamily: F.body, fontSize: 14.5, color: C.inkSoft, marginTop: 3 }}>{t.advice}</Text>
+        <View style={{ marginTop: 14, backgroundColor: C.cardInset, borderRadius: 16, padding: 16, gap: 11 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+            <Text style={{ fontFamily: F.display, fontWeight: "700", fontSize: 40, color: C.accentD }}>{t.bedtime === "—" ? "✈️" : t.bedtime}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: F.bodySemi, fontSize: 16, color: C.ink }}>
+                {t.label}
+                {t.adjustedBy ? `  (+${t.adjustedBy} min after a rough night)` : ""}
+              </Text>
+              <Text style={{ fontFamily: F.body, fontSize: 14.5, color: C.inkSoft, marginTop: 3 }}>{t.advice}</Text>
+            </View>
           </View>
+          {/* daytime levers MedPsy is steering: light timing + strategic naps */}
+          {t.light ? (
+            <View style={{ flexDirection: "row", gap: 9, alignItems: "flex-start" }}>
+              <Text style={{ fontSize: 16 }}>☀️</Text>
+              <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 14, color: C.ink }}>{t.light}</Text>
+            </View>
+          ) : null}
+          {t.nap ? (
+            <View style={{ flexDirection: "row", gap: 9, alignItems: "flex-start" }}>
+              <Text style={{ fontSize: 16 }}>😴</Text>
+              <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 14, color: C.ink }}>{t.nap}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* morning check-in */}
@@ -182,19 +198,27 @@ export function BedtimeOverlay() {
           <Text style={{ fontFamily: F.bodyMed, fontSize: 13.5, color: C.olive, marginTop: 8 }}>{feedback}</Text>
         ) : null}
 
-        {/* the full table */}
-        <ScrollView style={{ marginTop: 14, maxHeight: 200 }} contentContainerStyle={{ gap: 6 }}>
-          {plan!.days.map((d, i) => (
-            <Pressable
-              key={d.label}
-              onPress={() => setDayOverride(i)} // parent can pick which night tonight is
-              style={{ flexDirection: "row", gap: 12, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: i === t.dayIndex ? "rgba(189,88,56,0.12)" : "transparent" }}
-            >
-              <Text style={{ fontFamily: F.bodySemi, fontSize: 15, color: C.accentD, minWidth: 52 }}>{d.bedtime}</Text>
-              <Text style={{ flex: 1, fontFamily: F.body, fontSize: 14.5, color: C.ink }}>{d.label}</Text>
-              {i === t.dayIndex ? <Icon name="moon" size={16} color={C.accentD} /> : null}
-            </Pressable>
-          ))}
+        {/* the full table, grouped by leg (getting ready → in destination → back home) */}
+        <ScrollView style={{ marginTop: 14, maxHeight: 232 }} contentContainerStyle={{ gap: 4 }}>
+          {plan!.days.map((d, i) => {
+            const newPhase = i === 0 || plan!.days[i - 1].phase !== d.phase;
+            const header = d.phase === "pre" ? "✈️ Getting ready" : d.phase === "home" ? "🏠 Back home" : `🛬 In ${dest}`;
+            return (
+              <View key={d.label}>
+                {newPhase ? (
+                  <Text style={{ fontFamily: F.bodySemi, fontSize: 12, color: C.inkFaint, marginTop: i ? 8 : 0, marginBottom: 2, letterSpacing: 0.4 }}>{header}</Text>
+                ) : null}
+                <Pressable
+                  onPress={() => setDayOverride(i)} // parent can pick which night tonight is
+                  style={{ flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: i === t.dayIndex ? "rgba(189,88,56,0.12)" : "transparent" }}
+                >
+                  <Text style={{ fontFamily: F.bodySemi, fontSize: 15, color: C.accentD, minWidth: 52 }}>{d.bedtime}</Text>
+                  <Text style={{ flex: 1, fontFamily: F.body, fontSize: 14.5, color: C.ink }}>{d.label}</Text>
+                  {i === t.dayIndex ? <Icon name="moon" size={16} color={C.accentD} /> : null}
+                </Pressable>
+              </View>
+            );
+          })}
         </ScrollView>
 
         <Btn

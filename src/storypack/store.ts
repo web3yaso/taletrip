@@ -85,27 +85,36 @@ export function loadPackRaw(id: string): StoryPack | null {
   }
 }
 
-// On first run, copy the bundled "Mia's trip to Lisbon" into documents/packs.
-const BUNDLED_JSON = require("@/assets/packs/lisbon-mia/storypack.json") as StoryPack;
+// The bundled demo book — a complete "Sofia's trip to Barcelona": real
+// illustrations + full bilingual text + two-way jet-lag sleep plan + vocab.
+// Shipped in the app bundle so the Reader ALWAYS has a perfect book to drive
+// every feature, independent of P2P delivery (which we demo separately).
+const BUNDLED_JSON = require("@/assets/packs/barcelona-sofia/storypack.json") as StoryPack;
 const BUNDLED_IMAGES = [
-  require("@/assets/packs/lisbon-mia/p0.png"),
-  require("@/assets/packs/lisbon-mia/p1.png"),
-  require("@/assets/packs/lisbon-mia/p2.png"),
-  require("@/assets/packs/lisbon-mia/p3.png"),
-  require("@/assets/packs/lisbon-mia/p4.png"),
+  require("@/assets/packs/barcelona-sofia/p0.png"),
+  require("@/assets/packs/barcelona-sofia/p1.png"),
+  require("@/assets/packs/barcelona-sofia/p2.png"),
+  require("@/assets/packs/barcelona-sofia/p3.png"),
+  require("@/assets/packs/barcelona-sofia/p4.png"),
 ];
 
+// (Re)seed the bundled book once per app session. Overwrites any prior copy of
+// the same id (e.g. a broken P2P download), so the demo always opens to a
+// complete, image-perfect book, and makes it the Reader's default.
+let bundledSeeded = false;
 export async function seedBundledIfEmpty(): Promise<void> {
   ensureDir();
-  if (listPacks().length > 0) return;
+  if (bundledSeeded) return;
+  bundledSeeded = true;
   const dir = new Directory(PACKS, BUNDLED_JSON.id);
-  if (!dir.exists) dir.create();
+  if (dir.exists) dir.delete();
+  dir.create();
   new File(dir, "storypack.json").write(JSON.stringify(BUNDLED_JSON));
   for (let i = 0; i < BUNDLED_IMAGES.length; i++) {
     const asset = Asset.fromModule(BUNDLED_IMAGES[i]);
     await asset.downloadAsync();
     const localUri = asset.localUri ?? asset.uri;
-    const dest = new File(dir, `p${i}.png`);
-    if (!dest.exists) await new File(localUri).copy(dest);
+    await new File(localUri).copy(new File(dir, `p${i}.png`));
   }
+  markCurrent(BUNDLED_JSON.id);
 }

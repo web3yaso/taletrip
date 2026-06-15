@@ -103,6 +103,7 @@ const server = http.createServer(async (req, res) => {
         age: parsed.age || saved.age || 0,
         gender: parsed.gender || saved.gender || "",
         likes: parsed.likes || saved.likes || "",
+        favoriteBooks: parsed.favoriteBooks || saved.favoriteBooks || "",
       };
       const days = Math.max(1, parsed.days || 3);
       const trip = {
@@ -129,6 +130,7 @@ const server = http.createServer(async (req, res) => {
       age: Number(b.age) || 0,
       gender: ["girl", "boy", ""].includes(b.gender) ? b.gender : "",
       likes: String(b.likes ?? "").slice(0, 120),
+      favoriteBooks: String(b.favoriteBooks ?? "").slice(0, 160),
     });
     return send(res, 200, "application/json", "{\"ok\":true}");
   }
@@ -176,6 +178,14 @@ server.listen(PORT, () => {
 });
 
 // ───────────────────────── browser UI (self-contained) ─────────────────────────
+// dropdown options for the style-RAG picker (shared 12-book corpus)
+const FAV_OPTIONS = (() => {
+  try {
+    const books = JSON.parse(fs.readFileSync("assets/knowledge/picturebooks.json", "utf8")).books;
+    return books.reduce((h, b) => h + "<option>" + b.title + "</option>", "<option value=\"\">— none —</option>");
+  } catch { return ""; }
+})();
+
 const PAGE = `<!doctype html><html><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>TaleTrip · Parent Studio</title>
@@ -239,6 +249,7 @@ button.go:disabled{opacity:.5}
         <label>Gender</label>
         <select id="gender"><option value="">—</option><option value="girl">girl</option><option value="boy">boy</option></select>
         <label>Loves (powers the personalization)</label><input id="likes" placeholder="dinosaurs, drawing…"/>
+        <label>Favorite picture book (style RAG)</label><select id="fav">${FAV_OPTIONS}</select>
         <label>Usual bedtime (for the jet-lag plan)</label><input id="bedtime" value="20:30" placeholder="20:30"/>
       </div>
     </div>
@@ -279,6 +290,7 @@ document.getElementById('plan').onclick=async()=>{
     document.getElementById('age').value=profile.age||'';
     document.getElementById('gender').value=profile.gender;
     document.getElementById('likes').value=profile.likes;
+    document.getElementById('fav').value=profile.favoriteBooks||'';
     const sum=document.getElementById('tripSummary');clear(sum);
     sum.appendChild(el('b',{text:'📍 '+trip.destination}));
     sum.appendChild(document.createTextNode(' · '+trip.days+' days · '+(trip.tzDiff?('jet lag ~'+trip.tzDiff+'h'):'no jet lag')));
@@ -313,6 +325,7 @@ document.getElementById('go').onclick=async()=>{
     age:Number(document.getElementById('age').value)||0,
     gender:document.getElementById('gender').value,
     likes:document.getElementById('likes').value,
+    favoriteBooks:document.getElementById('fav').value,
     pages:Number(document.getElementById('days').value)?Math.min(5,Math.max(2,Number(document.getElementById('days').value))):5,
     vocabLang:'es',
     quality:document.getElementById('hq').checked?'high':'fast',

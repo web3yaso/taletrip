@@ -14,7 +14,7 @@ import {
   STYLE, NEG, DENY, PACKS_ROOT, safeSlug,
 } from "./generate.mjs";
 import { buildSleepPlan, tzDiffFor } from "./medpsy.mjs";
-import { retrieveFacts } from "./rag.mjs";
+import { retrieveFacts, retrieveStyle } from "./rag.mjs";
 
 let orchestratorPromise = null;
 function loadOrchestrator() {
@@ -88,8 +88,9 @@ const tripSchema = {
     age: { type: "integer", description: "Child's age in years; 0 if not mentioned" },
     gender: { type: "string", enum: ["girl", "boy", ""], description: "Child's gender if mentioned" },
     likes: { type: "string", description: "Things the child loves, comma separated; empty if not mentioned" },
+    favoriteBooks: { type: "string", description: "Picture books or stories the child loves, comma separated; empty if not mentioned" },
   },
-  required: ["destination", "days", "childName", "age", "gender", "likes"],
+  required: ["destination", "days", "childName", "age", "gender", "likes", "favoriteBooks"],
 };
 
 export async function parseTripRequest(text) {
@@ -194,6 +195,14 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
   }
   await unloadOrchestrator();
 
+  // style RAG: match the books the child loves to a shared picture-book corpus
+  // (EmbeddingGemma) and steer the writer toward that cadence/devices.
+  let styleGuide = "";
+  if (req.favoriteBooks) {
+    onProgress("📚 matching your child's favorite picture-book style…", step, total);
+    try { styleGuide = await retrieveStyle(req.favoriteBooks); } catch {}
+  }
+
   const pages = [];
   const vocabAll = {};
   for (let i = 0; i < scenes.length; i++) {
@@ -204,6 +213,7 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     onProgress(`✍️ writing page ${i + 1} of ${scenes.length}…`, ++step, total);
     const tw = Date.now();
     const msgs = narrationMessages(scene.summary, childName, destination);
+    if (styleGuide) msgs[0].content += ` ${styleGuide}`;
     if (facts.length) msgs[0].content += ` Weave in naturally if it fits: ${facts.join(" ")}`;
     if (likes) msgs[0].content += ` The child loves ${likes}.`;
     if (req.gender === "girl" || req.gender === "boy") msgs[0].content += ` ${childName} is a ${req.gender}.`;

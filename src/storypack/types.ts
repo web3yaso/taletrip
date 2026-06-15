@@ -31,14 +31,18 @@ export type StoryPack = {
 export type SleepPlanDay = {
   label: string; // "Night 1 in Barcelona"
   bedtime: string; // "19:30" or "—" (flight day)
+  nap?: string; // deterministic nap window, e.g. "13:00–13:30 · ≤30 min, none after 15:00"
+  light?: string; // deterministic light timing, e.g. "Bright morning light 7–9am · dim after dinner"
+  phase?: "pre" | "arrival" | "home"; // pre-trip / at destination / back home (return leg)
   advice: string; // MedPsy: last night went fine
   adviceIfRough: string; // MedPsy: rough night branch
 };
 
 export type SleepPlan = {
   shiftHours: number;
-  direction: "east" | "west";
+  direction: "east" | "west"; // outbound shift direction (home → destination)
   childAge: number;
   baseBedtime: string;
-  days: SleepPlanDay[];
+  destination?: string; // for local-time anchoring copy ("Barcelona is +8h")
+  days: SleepPlanDay[]; // pre-trip → arrival nights → back-home (return) nights
 };

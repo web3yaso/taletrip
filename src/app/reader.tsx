@@ -168,6 +168,15 @@ export default function Reader() {
 
   useEffect(() => () => stopPcm(), []);
 
+  // tapping a colored word opens the vocab card — stop the page narration so it
+  // doesn't talk over the word's pronunciation
+  useEffect(() => {
+    if (word) {
+      stopPcm();
+      setReading(false);
+    }
+  }, [word]);
+
   const hearWord = useCallback(async (es: string) => {
     try {
       await ModelManager.ensureTTS("en");

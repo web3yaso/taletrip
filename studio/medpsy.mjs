@@ -10,6 +10,7 @@ import fs from "bare-fs";
 import path from "bare-path";
 import { logEvent } from "./evidence.mjs";
 import { sdk } from "./generate.mjs";
+import { sanitizeAdvice } from "./advice-sanitize.mjs";
 
 const MEDPSY_PATH = path.resolve("studio/models/medpsy-1.7b-q4_k_m.gguf");
 
@@ -41,25 +42,64 @@ const toHHMM = (min) => {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 };
 
-// westward: body clock runs ahead of local → kid sleepy too EARLY locally →
-// start earlier than base on arrival and move +30min/night up to base.
-// eastward: the mirror image (start later, move earlier).
+// Light is the strongest zeitgeber. To shift the body clock EARLIER (phase
+// advance — what an eastward trip needs) seek morning light, avoid evening
+// light. To shift LATER (phase delay — westward) do the reverse. Naps are
+// strategic: short and early enough not to steal that night's sleep drive.
+// `dir` here is the direction THIS leg must shift the clock.
+function lightTip(dir, phase) {
+  if (dir === "east") {
+    return phase === "pre"
+      ? "Catch early-morning light; dim lights ~30 min earlier each evening"
+      : "Bright light first thing 7–9am local · dim screens & lights after dinner";
+  }
+  return phase === "pre"
+    ? "Stay up with bright evening light; sleep in a little later"
+    : "Soak up afternoon/evening light 4–7pm local · keep the morning dim";
+}
+function napTip(phase, n) {
+  if (phase === "pre") return "";
+  if (phase === "flight") return "Nap on the plane only during the destination's night-time";
+  // first two days at a new clock: a short, early nap is OK; after that, push through
+  if (n <= 2) return "Short nap OK 13:00–13:30 local · ≤30 min, none after 15:00";
+  return "Try to skip naps today — push through to tonight's target";
+}
+
+// Build the day-by-day skeleton: pre-trip nudge → flight → arrival nights
+// (converge to base) → RETURN leg back home (clock shifts the OTHER way, so a
+// few more nights to re-adapt). westward: body clock ahead of local → sleepy
+// too early → start earlier than base, move +30/night. eastward: mirror.
 export function buildSkeleton(destination, shiftHours, direction, baseBedtime = "20:30") {
   const base = toMin(baseBedtime);
   const days = [];
-  // pre-trip: 2 nights, nudging 30 min toward the destination clock
+  const offsetFor = (dir) => (dir === "west" ? -1 : +1) * Math.min(90, shiftHours * 15);
+  const nightsFor = () => Math.min(4, Math.max(2, Math.round(shiftHours / 2)));
+
+  // pre-trip: 2 nights nudging toward the destination clock
   const preSign = direction === "west" ? +1 : -1;
-  days.push({ label: "2 nights before", bedtime: toHHMM(base + preSign * 30) });
-  days.push({ label: "1 night before", bedtime: toHHMM(base + preSign * 60) });
-  days.push({ label: "✈️ Flight day", bedtime: "—" });
-  // arrival: start offset toward the body clock, converge 30 min/night to base
-  const nights = Math.min(4, Math.max(2, Math.round(shiftHours / 2)));
-  const startOffset = (direction === "west" ? -1 : +1) * Math.min(90, shiftHours * 15);
-  for (let n = 1; n <= nights; n++) {
-    const frac = n / nights; // linear convergence to base
-    days.push({ label: `Night ${n} in ${destination}`, bedtime: toHHMM(base + Math.round(startOffset * (1 - frac))) });
+  days.push({ phase: "pre", label: "2 nights before", bedtime: toHHMM(base + preSign * 30), nap: napTip("pre"), light: lightTip(direction, "pre") });
+  days.push({ phase: "pre", label: "1 night before", bedtime: toHHMM(base + preSign * 60), nap: napTip("pre"), light: lightTip(direction, "pre") });
+  days.push({ phase: "pre", label: "✈️ Flight day", bedtime: "—", nap: napTip("flight"), light: "Set watches to destination time on takeoff" });
+
+  // arrival: shift toward the destination clock, converge to base
+  const aNights = nightsFor();
+  const aOffset = offsetFor(direction);
+  for (let n = 1; n <= aNights; n++) {
+    const frac = n / aNights;
+    days.push({ phase: "arrival", label: `Night ${n} in ${destination}`, bedtime: toHHMM(base + Math.round(aOffset * (1 - frac))), nap: napTip("arrival", n), light: lightTip(direction, "arrival") });
   }
-  days.push({ label: "Back to normal", bedtime: baseBedtime });
+
+  // return leg home: the clock must now shift the OTHER way
+  const homeDir = direction === "east" ? "west" : "east";
+  const hNights = Math.min(3, nightsFor());
+  const hOffset = offsetFor(homeDir);
+  const homeLight = lightTip(homeDir, "arrival");
+  days.push({ phase: "home", label: "✈️ Fly home", bedtime: "—", nap: napTip("flight"), light: homeLight });
+  for (let n = 1; n <= hNights; n++) {
+    const frac = n / hNights;
+    days.push({ phase: "home", label: `Home night ${n}`, bedtime: toHHMM(base + Math.round(hOffset * (1 - frac))), nap: napTip("arrival", n), light: homeLight });
+  }
+  days.push({ phase: "home", label: "Back to normal", bedtime: baseBedtime, nap: "", light: "Normal routine — jet lag beaten 🎉" });
   return days;
 }
 
@@ -88,34 +128,47 @@ const adviceSchema = {
 };
 
 const FALLBACK = {
-  advice: "Keep the usual wind-down routine and dim the lights 30 minutes before the target time.",
-  adviceIfRough: "Push bedtime ~20 minutes later tonight, keep the room dark, and add an extra calm story or cuddle.",
+  advice: "Tonight's calm, steady routine is nudging their body clock the right way — keep it gentle.",
+  adviceIfRough: "Last night was bumpy, so go a little slower tonight with extra cuddles — it settles within a few days.",
 };
 
 async function adviseDay(id, destination, age, shiftHours, day) {
   const t0 = Date.now();
+  // Build a NUMBER-FREE focus so the small model has no clock time to parrot
+  // (the exact windows are already shown from the deterministic fields). The
+  // light field encodes the shift direction (morning light = advance/earlier).
+  const lt = day.light || "";
+  const shiftWord =
+    day.phase === "home" ? "back toward home time"
+    : /morning/i.test(lt) ? "to a slightly earlier rhythm"
+    : /afternoon|evening/i.test(lt) ? "to a slightly later rhythm"
+    : "toward the new schedule";
+  const lightFocus =
+    /morning/i.test(lt) ? "bright morning daylight and a calm, dim evening"
+    : /afternoon|evening/i.test(lt) ? "plenty of afternoon and evening light with a quiet, dim morning"
+    : "bright light by day and dim light at night";
+  const napFocus =
+    /short nap/i.test(day.nap || "") ? ", and a short early-afternoon nap is fine"
+    : /skip/i.test(day.nap || "") ? ", and skipping daytime naps so night sleep comes easily"
+    : /plane/i.test(day.nap || "") ? ", resting on the plane only during the destination's night"
+    : "";
   try {
     const r = sdk.completion({
       modelId: id, stream: false,
       generationParams: { reasoning_budget: 0 },
       history: [
-        { role: "system", content: "You are a pediatric sleep advisor helping a family beat jet lag. Output JSON only, each field 1-2 short practical sentences a parent can act on tonight. Behavioral guidance only — NEVER recommend medication, melatonin or any supplement. No disclaimers, no numbered lists." },
-        { role: "user", content: `Child age ${age || 5}. Trip to ${destination}, time shift ${shiftHours}h. Tonight is "${day.label}", target bedtime ${day.bedtime}. Write the two advice branches.` },
+        { role: "system", content: "You are a warm pediatric sleep coach. For EACH field write exactly ONE short, encouraging sentence (under 22 words) a parent reads at night. Say WHY tonight helps; for a rough night, reassure them and suggest going a little gentler. NEVER mention any clock time, hour, number, or place name — those are shown separately. Behavioral only: never medication, melatonin or supplements. No lists, no preamble." },
+        { role: "user", content: `Child age ${age || 5}. Tonight is "${day.label}". It nudges the body clock ${shiftWord}, using ${lightFocus}${napFocus}. Write advice (last night went fine) and adviceIfRough (last night was rough — reassure and go gentler tonight).` },
       ],
       responseFormat: { type: "json_schema", json_schema: { name: "advice", schema: adviceSchema } },
     });
     const out = JSON.parse((await r.text).replace(/<think>[\s\S]*?<\/think>/g, ""));
     logEvent("completion", { model: "MedPsy-1.7B-Q4_K_M(local)", role: "sleep-advisor", day: day.label, durMs: Date.now() - t0 });
-    // guardrails: behavioral advice only (no meds/supplements), single clean sentence flow
-    const clean = (s) =>
-      String(s ?? "")
-        .replace(/^\s*\d+[.)]\s*/gm, "")
-        .replace(/([.!?])\s*\d+[.)]\s*/g, "$1 ") // inline "…onset.2. Keep…" residue
-        .replace(/\n+/g, " ")
-        .trim();
-    const ok = (s) => s.length > 15 && s.length < 320 && !/\b(melatonin|medicat|supplement|drug|pill)\b/i.test(s);
-    const a = clean(out.advice), b = clean(out.adviceIfRough);
-    return { advice: ok(a) ? a : FALLBACK.advice, adviceIfRough: ok(b) ? b : FALLBACK.adviceIfRough };
+    // deterministic clean-up: one clean sentence, no echoed labels / clock times
+    return {
+      advice: sanitizeAdvice(out.advice, "advice", day.phase),
+      adviceIfRough: sanitizeAdvice(out.adviceIfRough, "rough", day.phase),
+    };
   } catch {
     return { ...FALLBACK };
   }
@@ -131,5 +184,5 @@ export async function buildSleepPlan(destination, age, tzDiff, baseBedtime = "20
     onProgress(`🏥 MedPsy advising "${skeleton[i].label}"…`);
     days.push({ ...skeleton[i], ...(await adviseDay(id, destination, age, tzDiff, skeleton[i])) });
   }
-  return { shiftHours: tzDiff, direction, childAge: age || 5, baseBedtime, days };
+  return { shiftHours: tzDiff, direction, childAge: age || 5, baseBedtime, destination, days };
 }

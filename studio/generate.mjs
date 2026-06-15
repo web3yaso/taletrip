@@ -91,7 +91,7 @@ export async function generateStoryPack(req, onProgress = () => {}) {
     onProgress(`writing page ${i + 1} of ${scenes.length}…`, ++step, total);
     const tw = Date.now();
     const r = sdk.completion({ modelId: llm, history: narrationMessages(scenes[i], childName, destination), stream: false });
-    let text = (await r.text).trim().split("\n").filter(Boolean)[0] ?? "";
+    let text = (await r.text).trim().replace(/\s*\n+\s*/g, " ").replace(/\s+/g, " ").trim();
     logEvent("completion", { model: "LLAMA_3_2_1B_INST_Q4_0", page: i, durMs: Date.now() - tw, outputChars: text.length });
     if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `${childName} enjoys ${scenes[i]}.`;
     for (const v of pickVocab(text)) vocabAll[v.word] = v;

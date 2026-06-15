@@ -69,8 +69,11 @@ export async function receivePack(key: string, onProgress?: (s: string) => void)
     onProgress?.(`downloading ${pg.image}…`);
     const img = await fetchToCache(key, pg.image);
     const local = `${stamp}-${pg.image}`;
-    await img.copy(new File(dir, local));
+    const dest = new File(dir, local);
+    await img.copy(dest);
     pg.image = local; // local json points at the stamped copy
+    // diagnostic: surface byte sizes so we can see if P2P/copy produced real images
+    onProgress?.(`  ↳ ${local}: cache ${img.size ?? "?"}B → local ${dest.exists ? (dest.size ?? "?") : "MISSING"}B`);
   }
   new File(dir, "storypack.json").write(JSON.stringify(pack));
 
