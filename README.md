@@ -1,56 +1,166 @@
-# Welcome to your Expo app 👋
+<div align="center">
+  <img src="assets/images/icon.png" width="120" alt="TaleTrip" />
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+  # TaleTrip
 
-## Get started
+  > Parents turn a family trip into a personalized, bilingual AI picture book — generated and read **fully offline, on-device**. A Mac "Parent Studio" writes and illustrates the tale; an iPad "Kid app" reads it aloud, teaches words, and plays camera games. No cloud, no accounts, no data leaving the device.
 
-1. Install dependencies
+  ![Expo SDK](https://img.shields.io/badge/Expo-SDK%2056-000020?logo=expo)
+  ![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react)
+  ![React Native](https://img.shields.io/badge/React%20Native-0.85-282C34?logo=react)
+  ![QVAC](https://img.shields.io/badge/QVAC%20SDK-on--device%20AI-6E56CF)
+  ![Offline](https://img.shields.io/badge/Offline-first-2E7D32)
+  ![License](https://img.shields.io/badge/License-Apache%202.0-D22128)
+</div>
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+## Table of Contents
 
-   ```bash
-   npx expo start
-   ```
+- [Project Overview](#project-overview)
+- [Getting Started](#getting-started)
+- [Problem](#problem)
+- [Why AI](#why-ai)
+- [Why Offline & On-Device](#why-offline--on-device)
+- [How It Works](#how-it-works)
+- [Demo](#demo)
+- [Roadmap](#roadmap)
+- [Validation](#validation)
+- [Risks](#risks)
+- [Team](#team)
+- [License](#license)
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Project Overview
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+TaleTrip is a fully offline, on-device AI picture-book app for traveling families. A parent describes the trip and the child; on a Mac, an **agentic pipeline plans, researches, writes, and illustrates** a bilingual storybook starring that child in that destination. The book is delivered **peer-to-peer** to the kid's iPad, where it is read aloud, teaches Spanish vocabulary, and turns into camera games — all without a network.
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+Parent (Mac · Parent Studio)              Kid (iPad · offline)
+  trip + child profile           →          receive over P2P (pear://)
+  plan → research → write → paint  →         read · learn words · play
+  on-device LLM/SDXL/RAG          →          no cloud · no accounts · private
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Built for the **QVAC Hackathon (Mobile track)** on Expo SDK 56 + React Native 0.85, using the QVAC SDK to run every model — language, diffusion, vision, speech, and embeddings — locally.
 
-### Other setup steps
+## Getting Started
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+# 1. install dependencies
+npm install
 
-## Learn more
+# 2. Kid app (iPad) — build & run the native app, then Metro serves the JS
+npm run ios            # or: npm start  (Metro only)
 
-To learn more about developing your project with Expo, look at the following resources:
+# 3. Parent Studio (Mac) — on-device generation server on http://localhost:3000
+node node_modules/.bin/bare studio/server.mjs
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+# type-check (strict)
+npx tsc --noEmit
+```
 
-## Join the community
+> The Studio server warms up the local models on launch (LLM, SDXL, VLM, TTS, embeddings) and seeds the bundled demo book over P2P. Generation needs an Apple Silicon Mac; the iPad runs the reader and games.
 
-Join our community of developers creating universal apps.
+## Problem
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Kids' digital content is generic, cloud-bound, and rarely bilingual or about the child's own life.
+- Family travel brings jet lag and unfamiliar places, but nothing turns a real trip into a gentle, personalized bedtime story.
+- Parents worry about privacy: today's "AI for kids" ships children's photos, voices, and prompts to someone else's servers.
+
+## Why AI
+
+- Generates a one-of-a-kind story that **stars the child** and is set in their **real destination**.
+- On-device models do everything: an LLM writes the prose, **SDXL** paints each page, a **VLM** powers camera games, and **TTS** reads it aloud.
+- **RAG** grounds the story in real destination facts and steers it toward the family's favorite picture-book style.
+- Small models are wrapped in deterministic guardrails so output stays safe, on-topic, and age-appropriate.
+
+## Why Offline & On-Device
+
+- **Privacy by design** — photos, prompts, and audio never leave the device.
+- **Works with zero connectivity** — on a plane, a train, or abroad with no SIM.
+- **No accounts, no servers, no per-token cloud cost.**
+- **Sharing is peer-to-peer** — the parent's Mac seeds the book directly to the kid's iPad over `pear://`, device to device.
+
+## How It Works
+
+```mermaid
+flowchart LR
+  A[Parent Studio · Mac] -->|Qwen3 4B plans the book| B[Research · EmbeddingGemma RAG]
+  B -->|Llama 3.2 1B writes| C[Bilingual page text + vocab]
+  B -->|SDXL paints| D[Per-page illustrations]
+  C --> E[StoryPack]
+  D --> E[StoryPack]
+  E -->|seed over pear:// P2P| F[iPad · Kid app]
+  F --> G[Read aloud · tap-to-learn Spanish · TTS]
+  F --> H[Scavenger Hunt · SmolVLM]
+  F --> I[Photo Story]
+  F --> J[Sleep Coach · jet-lag bedtime plan]
+```
+
+### MVP Scope Freeze
+
+| Priority | Included |
+| --- | --- |
+| P0 | Offline bilingual reader: real illustrations, tap colored words → flashcard + pronunciation, on-device read-aloud |
+| P0 | Parent Studio agentic generation (plan → research → write → paint) with picture-book style RAG |
+| P1 | Camera games: Scavenger Hunt (on-device VLM) and Photo Story |
+| P1 | Sleep Coach — bidirectional jet-lag bedtime plan with MedPsy guardrails |
+| P2 | P2P "Get a book" delivery (a bundled demo book is the reliable fallback) |
+
+## Demo
+
+### Video Demo
+
+[![Watch the demo](assets/images/icon.png)](#) <!-- replace # with your demo video link -->
+
+### Main Flow
+
+| Step | What Happens | Status |
+| --- | --- | --- |
+| 1 | Parent describes the trip + child in Parent Studio | ✅ |
+| 2 | Agents plan, research, write, and paint the storybook | ✅ |
+| 3 | Studio seeds the StoryPack over P2P (`pear://`) | ✅ |
+| 4 | Kid taps "Get a book" on the iPad and receives it | ✅ |
+| 5 | Kid reads bilingually, taps words, hears them read aloud | ✅ |
+| 6 | Kid plays Scavenger Hunt & Photo Story; Sleep Coach guides bedtime | ✅ |
+
+## Roadmap
+
+| Stage | Direction |
+| --- | --- |
+| Now (MVP) | Bundled demo book, agentic generation, P2P delivery, offline reader + camera games |
+| Next | More languages & voices, a richer picture-book style corpus, on-device generation on iPad |
+| Later | Multi-child profiles, a parent dashboard, printable/exportable books |
+| Vision | Every family trip becomes a personalized, private, fully offline storybook |
+
+## Validation
+
+| Evidence | Current Status | Notes |
+| --- | --- | --- |
+| On-device generation (MacBook, Apple Silicon) | ✅ Verified | Llama 3.2 1B ~1s/page, SDXL 512² ~28s, no OOM |
+| P2P delivery Mac → iPad | ✅ Verified on device | `downloadAsset` + `pear://` Hyperdrive/Hyperswarm |
+| On-device read-aloud (TTS) | ✅ Working | English narration + Spanish vocabulary |
+| Scavenger Hunt VLM | ✅ Working | SmolVLM 500M, open-ended object naming |
+| Sleep Coach jet-lag plan | ✅ Working | Bidirectional timezone + deterministic MedPsy guardrails |
+| Picture-book style RAG | ✅ Working | EmbeddingGemma matches favorites → steers prose **and** illustration art |
+
+## Risks
+
+- **On-device compute:** heavy generation needs a capable Apple Silicon Mac; older iPads run the reader and games, not generation.
+- **Tiny-model drift:** prose and advice pass through deterministic sanitizers; this is not a substitute for human review.
+- **P2P image edge case:** a known `file://` render issue exists on receive; the demo ships a **bundled book** as a reliable fallback.
+- **Offline requires a release build:** debug builds pull the JS bundle from Metro at runtime, so true offline needs a release build.
+- **Limited TTS languages:** en / es / de / it, with only Spanish verified beyond English.
+- **Hackathon MVP scope:** not yet hardened or childproofed for production.
+
+## Team
+
+| Member | Role | GitHub |
+| --- | --- | --- |
+| web3yaso | Creator · Design & Engineering | [@web3yaso](https://github.com/web3yaso) |
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
