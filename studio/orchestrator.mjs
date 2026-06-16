@@ -10,9 +10,10 @@ import path from "bare-path";
 import { QWEN3_4B_INST_Q4_K_M } from "@qvac/sdk";
 import { logEvent } from "./evidence.mjs";
 import {
-  sdk, loadEngines, narrationMessages, pickVocab,
-  STYLE, NEG, DENY, PACKS_ROOT, safeSlug,
+  sdk, loadEngines, pickVocab,
+  STYLE, NEG, PACKS_ROOT, safeSlug,
 } from "./generate.mjs";
+import { vetNarration } from "./text-quality.mjs";
 import { buildSleepPlan, tzDiffFor } from "./medpsy.mjs";
 import { retrieveFacts, retrieveStyle } from "./rag.mjs";
 
@@ -154,6 +155,44 @@ async function researchScene(orc, destination, summary, onTrace) {
   return [...new Set(facts)].slice(0, 3);
 }
 
+// Phase B2: ONE 4B call writes the WHOLE book — it sees every page's summary and
+// researched facts at once, so the result is a CONNECTED story (one character, a
+// beginning/middle/end, no per-page drift) grounded in the facts. This replaces
+// the per-page 1B writer, which wrote each page blind to the others (incoherent).
+async function writeBook(orc, scenes, factsPer, childName, destination, likes, writeGuide) {
+  const t0 = Date.now();
+  const bookSchema = {
+    type: "object",
+    properties: {
+      pages: {
+        type: "array",
+        items: { type: "string", description: "2-3 short, gentle English sentences for this page" },
+      },
+    },
+    required: ["pages"],
+  };
+  const briefs = scenes
+    .map((s, i) => `Page ${i + 1}: ${s.summary}${factsPer[i]?.length ? ` [facts: ${factsPer[i].join("; ")}]` : ""}`)
+    .join("\n");
+  const sys =
+    `You write ONE gentle picture book for a 5-year-old named ${childName}, on a trip to ${destination}. ` +
+    `Write a CONNECTED story: each page continues from the page before (same child, a clear beginning, middle and end). ` +
+    `For EACH page write 2-3 short, simple sentences, in English only — never use parentheses, brackets, or word translations. ` +
+    `Use ${childName}'s name naturally. ${likes ? `${childName} loves ${likes}. ` : ""}${writeGuide ? writeGuide + " " : ""}` +
+    `Output JSON only: {"pages":[...]} with EXACTLY ${scenes.length} entries, in page order.`;
+  const r = sdk.completion({
+    modelId: orc, stream: false,
+    generationParams: { reasoning_budget: 0 },
+    history: [{ role: "system", content: sys }, { role: "user", content: briefs }],
+    responseFormat: { type: "json_schema", json_schema: { name: "book", schema: bookSchema } },
+  });
+  const text = await r.text;
+  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "writer", durMs: Date.now() - t0, outputChars: text.length });
+  const pages = JSON.parse(text).pages;
+  if (!Array.isArray(pages)) throw new Error("writer returned no pages");
+  return pages;
+}
+
 export async function generateStoryPackAgentic(req, onProgress = () => {}) {
   const destination = (req.destination || "Barcelona").trim();
   const childName = (req.childName || "Sofia").trim();
@@ -166,12 +205,12 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     ? { width: 768, height: 768, steps: 24 }
     : { width: 640, height: 640, steps: 20 };
 
-  const { llm, sd } = await loadEngines(onProgress);
+  const { sd } = await loadEngines(onProgress);
   onProgress("waking the orchestrator agent (Qwen3 4B)…");
   const orc = await loadOrchestrator();
 
-  // total: plan + per-page (research + write + paint)
-  const total = 1 + nPages * 3;
+  // total: plan + per-page research + one whole-book write + per-page paint
+  const total = 2 + nPages * 2;
   let step = 0;
 
   onProgress("🤖 planning the book…", ++step, total);
@@ -193,17 +232,24 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
       factsPer.push([]);
     }
   }
-  await unloadOrchestrator();
-
-  // style RAG: match the books the child loves to a shared picture-book corpus
-  // (EmbeddingGemma). writeGuide steers the writer's cadence; artStyle steers the
-  // SDXL illustrator so the chosen book changes BOTH the prose and the art.
+  // style RAG (while the 4B is still loaded, so the writer can borrow the favorite
+  // book's cadence). writeGuide steers the prose; artStyle steers the SDXL art.
   let style = { title: "", writeGuide: "", artStyle: "" };
   if (req.favoriteBooks) {
     onProgress("📚 matching your child's favorite picture-book style…", step, total);
     try { style = await retrieveStyle(req.favoriteBooks); } catch {}
     if (style.title) onProgress(`📚 styling after "${style.title}"`, step, total);
   }
+
+  // one connected book written by the 4B, THEN free the 4B before the SDXL loop
+  onProgress("✍️ writing the whole story…", ++step, total);
+  let narrations = [];
+  try {
+    narrations = await writeBook(orc, scenes, factsPer, childName, destination, likes, style.writeGuide);
+  } catch (e) {
+    console.log("writeBook failed, falling back to scene summaries:", e?.message ?? e);
+  }
+  await unloadOrchestrator();
   const artStyle = style.artStyle || STYLE; // book's art when chosen, else the default look
   // a consistent protagonist description so the SAME child appears on every page
   // and the picture actually depicts who the narration is about.
@@ -214,20 +260,10 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
   const vocabAll = {};
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
-    const facts = factsPer[i] ?? [];
 
-    // write (delegated to the 1B writer agent)
-    onProgress(`✍️ writing page ${i + 1} of ${scenes.length}…`, ++step, total);
-    const tw = Date.now();
-    const msgs = narrationMessages(scene.summary, childName, destination);
-    if (style.writeGuide) msgs[0].content += ` ${style.writeGuide}`;
-    if (facts.length) msgs[0].content += ` Weave in naturally if it fits: ${facts.join(" ")}`;
-    if (likes) msgs[0].content += ` The child loves ${likes}.`;
-    if (req.gender === "girl" || req.gender === "boy") msgs[0].content += ` ${childName} is a ${req.gender}.`;
-    const r = sdk.completion({ modelId: llm, history: msgs, stream: false });
-    let text = (await r.text).trim().split("\n").filter(Boolean)[0] ?? "";
-    logEvent("completion", { model: "LLAMA_3_2_1B_INST_Q4_0", role: "writer", page: i, durMs: Date.now() - tw, outputChars: text.length });
-    if (text.length < 10 || text.length > 400 || DENY.test(text)) text = `${childName} loved ${scene.summary}.`;
+    // this page's text comes from the connected book the 4B wrote; vetNarration
+    // strips parentheticals / catches degenerate output, falling back to the scene.
+    const text = vetNarration(narrations[i] ?? "", scene.summary, childName);
     for (const v of pickVocab(text)) vocabAll[v.word] = v;
     pages.push({ index: i, image: `p${i}.png`, scene: scene.summary, authoredNarration: text, slots: [] });
 
