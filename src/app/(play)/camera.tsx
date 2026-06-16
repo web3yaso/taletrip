@@ -100,9 +100,11 @@ export default function MyCamera() {
       <View style={{ flex: 1, flexDirection: "row", gap: 16, paddingHorizontal: 34, paddingTop: 6, paddingBottom: 16 }}>
         {/* ── viewfinder ── */}
         <View style={{ flex: 1.65, borderRadius: 22, overflow: "hidden", backgroundColor: "#11181d", boxShadow: SHADOW.card }}>
-          {perm?.granted && focused ? (
-            // unmounted entirely when unfocused — mounting alone can claim the
-            // single iOS camera session even when paused
+          {perm?.granted && focused && !gen ? (
+            // Unmounted when unfocused (mounting alone can claim the single iOS
+            // camera session) AND during generation — a live camera session
+            // competing with SmolVLM + the 1B LLM for memory/Metal on a 4GB
+            // device is what stalls the on-device pipeline ("stuck").
             <CameraView ref={setCamRef} style={{ flex: 1 }} facing={facing} active />
           ) : perm?.granted ? (
             <View style={{ flex: 1, backgroundColor: "#11181d" }} />
