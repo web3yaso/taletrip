@@ -16,9 +16,16 @@ Turn a family trip into a personalized, bilingual AI picture book — **written,
 | Scavenger Hunt (iPad) | SmolVLM2 500M recognizes real-world objects | https://youtu.be/BQbl9ClfkYA |
 | Sleep Coach (iPad) | MedPsy 1.7B authors an adaptive jet-lag bedtime plan | https://youtu.be/rEMcw5sA89s |
 
-## What it is
+## The problem
 
-Two cooperating QVAC apps. A **Kid app on a retail iPad** reads the book aloud (TTS), teaches Spanish tap-by-tap, plays camera games (on-device VLM), and runs a Sleep Coach (on-device MedPsy) — fully offline via a bundled book. A **Parent Studio on a laptop** runs the heavy authoring agents (4B orchestrator + SDXL) a phone shouldn't carry, then **seeds the finished book to the iPad over `pear://` P2P**.
+Kids' digital content is generic, cloud-bound, and rarely bilingual or about the child's own life. Family travel makes it harder — jet lag, unfamiliar places — yet nothing turns a real trip into a gentle, personalized bedtime story. And parents worry about privacy: today's "AI for kids" ships children's photos, voices, and prompts to someone else's servers.
+
+## Solution
+
+TaleTrip is two cooperating QVAC apps that make a private, offline storybook out of a real trip:
+
+- **Kid app — a retail iPad, fully on-device.** Reads the book aloud (TTS), teaches Spanish tap-by-tap, plays a camera **Scavenger Hunt** and **Photo Story** (on-device vision model), and runs a **Sleep Coach** that fights jet lag using an on-device MedPsy model. A bundled demo book ships inside the app, so everything works in airplane mode.
+- **Parent Studio — an optional laptop peer.** Runs the heavy authoring agents — a **Qwen3 4B orchestrator** that plans the book, calls a RAG tool, writes the whole connected story, and drives **SDXL** for illustrations — then **seeds the finished StoryPack to the iPad over `pear://` P2P**.
 
 ```
 PARENT STUDIO (laptop)              KID APP (retail iPad · on-device)
@@ -28,36 +35,13 @@ PARENT STUDIO (laptop)              KID APP (retail iPad · on-device)
  + EmbeddingGemma RAG                 Sleep Coach (MedPsy) · works offline
 ```
 
----
+Every model — language, diffusion, vision, speech, embeddings, and MedPsy — runs locally through the **QVAC SDK**. Nothing touches a network service.
 
-## ✅ Mandatory requirements
+## Why it fits the Mobile track
 
-| Requirement | How TaleTrip meets it |
-| --- | --- |
-| **QVAC SDK for all AI inference and RAG** | Every model — Qwen3 4B, Llama 3.2 1B, SDXL, SmolVLM2 500M, Supertonic2 (TTS), EmbeddingGemma 300M, and MedPsy 1.7B — is loaded and run through the QVAC SDK. RAG (destination facts + picture-book style) uses `sdk.embed()` with EmbeddingGemma. No cloud inference anywhere. |
-| **Follow a track's hardware constraints (Mobile)** | The consumer-facing app runs on a **retail iPad Pro 12.9" (3rd gen, A12X)** — the track's allowed hardware. The laptop is purely an *optional P2P delegation peer* (an explicit Mobile-track focus area), and the iPad works standalone via the bundled book. |
-| **Full reproducibility + hardware setup** | Run commands, model warm-up, and hardware (iPad Pro A12X + Apple Silicon Mac M4) are documented in the [README](https://github.com/web3yaso/taletrip#getting-started) and `docs/HOW_IT_WORKS.md` §8. |
-| **Complete artifacts** | Evidence bundle contains: Mac generation traces (`events.jsonl` + `run.json`), **iPad device-tagged inference logs**, a generated 5-page book + illustrations, five per-feature demo videos, and full docs (incl. a `MANIFEST.md` mapping each file to a criterion). |
-
----
-
-## 🏆 Core criteria
-
-- **Early Bird Bonus** — submitted before June 17.
-
-- **Innovation (novel edge / P2P AI)** — a private, offline, bilingual storybook generated from a *real family trip*, with the tablet **delegating its heavy 4B + SDXL authoring to a laptop over a `pear://` Hyperdrive** rather than the cloud. P2P delivery, device-to-device.
-
-- **Capabilities (multi-agent + tool calling)** — a **Qwen3 4B orchestrator** plans the book, emits grammar-constrained `lookup_facts` tool calls against the RAG, writes the whole *connected* story in one pass, and drives **SDXL** for illustrations — a hybrid pipeline pinned in JS with a deterministic fallback so a book always ships. Every `toolCall` / `ragSearch` / `completion` / `diffusion` is logged.
-
-- **Artifact Quality (consistent logs, resources, demo)** — **dual-side, device-tagged JSONL**: Mac (`device: mac-studio`) and iPad (`device: iPad Pro (12.9-inch) (3rd generation)`), same event schema, 0 errors per run; numbers in the docs match the logs; per-feature demo videos map 1:1 to the models they exercise.
-
-- **Performance (optimization, P2P load distribution, constrained devices, speed & reliability)** — heavy work is **offloaded to the laptop over P2P (Hyperdrive/Hyperswarm)**; the iPad holds one model family resident at a time via a serial **model-slot manager** (proven on a 4GB-class A12X). Tiny-model failure modes are handled deterministically (open-ended VLM judging, repetition/parenthesis sanitizers) for reliability, not prompt-wishing.
-
-- **Complexity & UX (advanced features + real usability)** — bilingual reader with TTS read-aloud and tap-to-learn vocab, two camera games (Scavenger Hunt, Photo Story), and an adaptive bidirectional **jet-lag Sleep Coach** — native iOS tabs, a kid-first UI, and a genuine daily-life use case (traveling families).
-
-- **Model Usage & Coverage (creative use of Psy models)** — **seven models across six modalities**: LLM (Qwen3 4B orchestrator, Llama 3.2 1B writer), diffusion (SDXL), vision (SmolVLM2 500M), speech (Supertonic2 TTS), embeddings/RAG (EmbeddingGemma 300M), and a **Psy model — MedPsy 1.7B** — authoring the jet-lag sleep guidance.
-
----
+- **Delegation over P2P.** The consumer-facing app runs on a retail iPad; the laptop is purely an *optional* peer that the tablet offloads its heavy 4B + SDXL authoring to, delivered device-to-device over a `pear://` Hyperdrive — exactly the track's "phone offloads heavy tasks to a laptop" scenario. With the bundled book, the iPad also works fully standalone.
+- **On-device on real consumer hardware.** Verified on an iPad Pro 12.9" (3rd gen, A12X) and an Apple Silicon Mac (M4). The iPad keeps one model family resident at a time via a serial model-slot manager, and tiny-model failure modes are handled deterministically for reliability — production-leaning, local-first.
+- **Multimodal, multi-agent, and privacy-first.** A grammar-constrained Qwen3 4B orchestrator with tool calling + RAG; seven QVAC models across six modalities (incl. the **MedPsy** Psy model for jet-lag coaching); and a hard privacy guarantee — photos, prompts, and audio never leave the device, with only the P2P book transfer between devices.
 
 ## Hardware
 
