@@ -5,43 +5,20 @@
 import { File, Paths } from "expo-file-system";
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
 import { isMuted, subscribeMute } from "./mute";
+import { encodeWav } from "./wav";
 
-// 16-bit mono PCM samples -> WAV byte stream.
-export function encodeWav(samples: number[], sampleRate: number): Uint8Array {
-  const dataLen = samples.length * 2;
-  const buf = new ArrayBuffer(44 + dataLen);
-  const view = new DataView(buf);
-  const ascii = (off: number, s: string) => {
-    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
-  };
-  ascii(0, "RIFF");
-  view.setUint32(4, 36 + dataLen, true);
-  ascii(8, "WAVE");
-  ascii(12, "fmt ");
-  view.setUint32(16, 16, true); // PCM fmt chunk size
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // mono
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true); // byte rate = rate * channels * 2
-  view.setUint16(32, 2, true); // block align
-  view.setUint16(34, 16, true); // bits per sample
-  ascii(36, "data");
-  view.setUint32(40, dataLen, true);
-  let off = 44;
-  for (let i = 0; i < samples.length; i++) {
-    let v = samples[i] | 0;
-    if (v > 32767) v = 32767;
-    else if (v < -32768) v = -32768;
-    view.setInt16(off, v, true);
-    off += 2;
-  }
-  return new Uint8Array(buf);
-}
+export { encodeWav }; // re-export so existing importers keep working
 
 let player: AudioPlayer | undefined;
 let audioModeReady = false;
+// Monotonic token: every stopPcm() (and every new playPcm()) bumps it. An
+// in-flight playPcm whose token is stale aborts BEFORE starting playback — this
+// is what makes pause/stop reliable even mid-await (the bug: stopPcm ran while
+// playPcm was awaiting setAudioMode/file-write, then playPcm started anyway).
+let playGen = 0;
 
 export function stopPcm() {
+  playGen++; // invalidate any playPcm currently between awaits
   try {
     player?.pause();
   } catch {}
@@ -61,6 +38,11 @@ subscribeMute(() => {
 // STARTED (not finished). The temp file stays in the app-private cache.
 export async function playPcm(samples: number[], sampleRate = 44100): Promise<void> {
   if (isMuted()) return; // Silent Mode — kids reading on a plane/train
+  const myGen = ++playGen; // this call supersedes anything earlier and is itself cancellable
+  // stop whatever is currently playing (without bumping the token again)
+  try { player?.pause(); } catch {}
+  try { player?.remove(); } catch {}
+  player = undefined;
   if (!audioModeReady) {
     // Play even when the device's silent switch is on.
     try {
@@ -68,11 +50,14 @@ export async function playPcm(samples: number[], sampleRate = 44100): Promise<vo
       audioModeReady = true;
     } catch {}
   }
+  if (myGen !== playGen) return; // a stopPcm()/newer playPcm() happened during the await
   const wav = encodeWav(samples, sampleRate);
   const file = new File(Paths.cache, `tts-${Date.now()}.wav`);
   if (!file.exists) file.create();
   file.write(wav);
-  stopPcm();
-  player = createAudioPlayer(file.uri);
+  if (myGen !== playGen) return; // ditto — never start playback the caller already cancelled
+  const p = createAudioPlayer(file.uri);
+  if (myGen !== playGen) { try { p.remove(); } catch {} return; }
+  player = p;
   player.play();
 }

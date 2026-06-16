@@ -1,0 +1,33 @@
+// src/reading/wav.ts
+// Pure: wrap 16-bit mono PCM samples in a WAV container. Extracted from
+// audio-player.ts so it can be unit-tested without expo-audio/expo-file-system.
+export function encodeWav(samples: number[], sampleRate: number): Uint8Array {
+  const dataLen = samples.length * 2;
+  const buf = new ArrayBuffer(44 + dataLen);
+  const view = new DataView(buf);
+  const ascii = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+  };
+  ascii(0, "RIFF");
+  view.setUint32(4, 36 + dataLen, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  view.setUint32(16, 16, true); // PCM fmt chunk size
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // byte rate = rate * channels * 2
+  view.setUint16(32, 2, true); // block align
+  view.setUint16(34, 16, true); // bits per sample
+  ascii(36, "data");
+  view.setUint32(40, dataLen, true);
+  let off = 44;
+  for (let i = 0; i < samples.length; i++) {
+    let v = samples[i] | 0;
+    if (v > 32767) v = 32767;
+    else if (v < -32768) v = -32768;
+    view.setInt16(off, v, true);
+    off += 2;
+  }
+  return new Uint8Array(buf);
+}

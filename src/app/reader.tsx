@@ -111,7 +111,12 @@ export default function Reader() {
       try {
         await seedBundledIfEmpty();
         const packs = listPacks();
-        if (!packs.length || cancelled) return;
+        if (cancelled) return;
+        // no book at all (seed produced nothing) → go get one instead of hanging
+        if (!packs.length) {
+          router.navigate("/p2p");
+          return;
+        }
         // explicit ?id= wins; else the "current" (newest received/generated) book
         const id =
           params.id && packs.some((p) => p.id === params.id)
@@ -137,34 +142,54 @@ export default function Reader() {
   const pg = story?.pages[page];
   const last = story ? story.pages.length - 1 : 0;
 
-  // read the current page aloud (unless Silent Mode)
-  useEffect(() => {
-    let cancelled = false;
+  // speak the current page aloud — reused by auto-play and the on-illustration
+  // play/pause control. reqRef invalidates any in-flight narration.
+  const speakPage = useCallback(async () => {
     const req = ++reqRef.current;
     stopPcm();
-    if (!focused || silent || !story || !pg) {
+    if (!story || !pg) {
       setReading(false);
       return;
     }
-    (async () => {
-      try {
-        setReading(true);
-        await ModelManager.ensureTTS("en");
-        const ttsId = ModelManager.ttsId();
-        if (!ttsId || cancelled || req !== reqRef.current) return;
-        const buf = await textToSpeech({ modelId: ttsId, text: readerPageText(pg, story.vocab), inputType: "text", stream: false }).buffer;
-        if (cancelled || req !== reqRef.current) return;
-        await playPcm(buf, TTS_SAMPLE_RATE);
-      } catch {
-        /* best-effort */
-      } finally {
-        if (!cancelled && req === reqRef.current) setReading(false);
-      }
-    })();
+    try {
+      setReading(true);
+      await ModelManager.ensureTTS("en");
+      const ttsId = ModelManager.ttsId();
+      if (!ttsId || req !== reqRef.current) return;
+      const buf = await textToSpeech({ modelId: ttsId, text: readerPageText(pg, story.vocab), inputType: "text", stream: false }).buffer;
+      if (req !== reqRef.current) return;
+      await playPcm(buf, TTS_SAMPLE_RATE);
+    } catch {
+      /* best-effort */
+    } finally {
+      if (req === reqRef.current) setReading(false);
+    }
+  }, [story, pg]);
+
+  // tap the play/pause badge on the illustration to stop or replay narration
+  const toggleNarration = useCallback(() => {
+    if (silent) return;
+    if (reading) {
+      reqRef.current++;
+      stopPcm();
+      setReading(false);
+    } else {
+      void speakPage();
+    }
+  }, [silent, reading, speakPage]);
+
+  // read the current page aloud (unless Silent Mode)
+  useEffect(() => {
+    if (!focused || silent || !story || !pg) {
+      stopPcm();
+      setReading(false);
+      return;
+    }
+    void speakPage();
     return () => {
-      cancelled = true;
+      stopPcm();
     };
-  }, [page, silent, pg, story, focused]);
+  }, [page, silent, pg, story, focused, speakPage]);
 
   useEffect(() => () => stopPcm(), []);
 
@@ -223,11 +248,15 @@ export default function Reader() {
           <View style={{ position: "absolute", left: 16, bottom: 14, backgroundColor: "rgba(40,55,70,0.55)", borderRadius: 999, paddingVertical: 4, paddingHorizontal: 12 }}>
             <Text style={{ fontFamily: F.body, fontSize: 14, color: "#fff" }}>Tap colored words to learn Spanish</Text>
           </View>
-          {reading ? (
-            <View style={{ position: "absolute", right: 16, top: 16, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(40,55,70,0.55)", borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
-              <Icon name="audio" size={16} color="#fff" />
-              <Text style={{ fontFamily: F.body, fontSize: 13, color: "#fff" }}>reading…</Text>
-            </View>
+          {!silent ? (
+            <Pressable
+              onPress={toggleNarration}
+              hitSlop={10}
+              style={{ position: "absolute", right: 16, top: 16, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: reading ? "rgba(40,55,70,0.62)" : C.accent, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, boxShadow: SHADOW.pop }}
+            >
+              <Icon name={reading ? "pause" : "play"} size={16} color="#fff" fill={!reading} />
+              <Text style={{ fontFamily: F.body, fontSize: 13, color: "#fff" }}>{reading ? "Pause" : "Read aloud"}</Text>
+            </Pressable>
           ) : null}
         </Card>
 
@@ -304,6 +333,12 @@ export default function Reader() {
                         deletePack(b.id);
                         setBooks((bs) => bs.filter((x) => x.id !== b.id));
                         setArmed(null);
+                        // last book gone → close the shelf and send the kid to "Get a book"
+                        if (listPacks().length === 0) {
+                          setShelf(false);
+                          setStory(null);
+                          router.navigate("/p2p");
+                        }
                       }}
                       style={{ position: "absolute", left: -8, top: -8, width: 34, height: 34, borderRadius: 17, backgroundColor: "#d23b2e", alignItems: "center", justifyContent: "center", boxShadow: SHADOW.soft, zIndex: 2 }}
                     >
