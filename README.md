@@ -26,6 +26,7 @@
 - [Demo](#demo)
 - [Roadmap](#roadmap)
 - [Validation](#validation)
+- [Evidence & Artifacts](#evidence--artifacts)
 - [Risks](#risks)
 - [Team](#team)
 - [License](#license)
@@ -145,6 +146,16 @@ flowchart LR
 | Scavenger Hunt VLM | ✅ Working | SmolVLM 500M, open-ended object naming |
 | Sleep Coach jet-lag plan | ✅ Working | Bidirectional timezone + deterministic MedPsy guardrails |
 | Picture-book style RAG | ✅ Working | EmbeddingGemma matches favorites → steers prose **and** illustration art |
+
+## Evidence & Artifacts
+
+Dual-side, on-device evidence is bundled in **`taletrip-evidence.zip`** (submitted as an attachment — raw logs are git-ignored). It contains:
+
+- `mac-runs/` — per-run Studio traces (`events.jsonl` + `run.json`): every `loadModel` / `completion` / `diffusion` / `ragSearch` / `toolCall`, device-tagged `mac-studio`.
+- `ipad-evidence/2026-06-16.jsonl` — every **on-device iPad** inference (TTS, SmolVLM, Llama 1B, P2P `downloadAsset`), device-tagged `iPad Pro (12.9-inch) (3rd generation)`.
+- `book/` — a generated 5-page book (storypack + illustrations); `docs/` — How It Works, benchmarks, runbook, regression checklist, privacy experiment; `MANIFEST.md` maps each file to a judging criterion.
+
+In this repo, the same docs live under [`docs/`](docs/) — see **[`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md)** for the full architecture and a captured-run evidence excerpt. (The demo video link goes in the Demo section above.)
 
 ## Risks
 
