@@ -112,11 +112,17 @@ flowchart LR
 
 ## Demo
 
-### Video Demo
+### Demo videos (per feature)
 
-▶️ **[Watch the demo on YouTube](https://www.youtube.com/channel/UCuuy-c1b2huG0scuyvJH8GA)**
+Each core feature, recorded running on real hardware:
 
-[![Watch the demo](assets/images/icon.png)](https://www.youtube.com/channel/UCuuy-c1b2huG0scuyvJH8GA)
+| Feature | What runs on-device (QVAC SDK) | Watch |
+| --- | --- | --- |
+| **Parent Studio** — the Mac authoring app | Local model warm-up + picture-book **style RAG** (EmbeddingGemma) | ▶️ [youtu.be/HDn0kAgcNNY](https://youtu.be/HDn0kAgcNNY) |
+| **Generate a story** — multi-agent pipeline | **Qwen3 4B** orchestrator + tool calls → **EmbeddingGemma** RAG → 4B writes the connected book → **SDXL** illustrates | ▶️ [youtu.be/9Uv2a9EIyG4](https://youtu.be/9Uv2a9EIyG4) |
+| **Photo Story** (iPad) | **SmolVLM2 500M** captions each photo → **Llama 3.2 1B** writes the diary | ▶️ [youtu.be/aOYc-Tvb5Qw](https://youtu.be/aOYc-Tvb5Qw) |
+| **Scavenger Hunt** (iPad) | **SmolVLM2 500M** recognizes real-world objects from the camera | ▶️ [youtu.be/BQbl9ClfkYA](https://youtu.be/BQbl9ClfkYA) |
+| **Sleep Coach** (iPad) | Adaptive jet-lag bedtime plan authored by **MedPsy 1.7B** | ▶️ [youtu.be/rEMcw5sA89s](https://youtu.be/rEMcw5sA89s) |
 
 ### Main Flow
 
