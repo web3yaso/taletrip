@@ -114,7 +114,9 @@ flowchart LR
 
 ### Video Demo
 
-[![Watch the demo](assets/images/icon.png)](#) <!-- replace # with your demo video link -->
+▶️ **[Watch the demo on YouTube](https://www.youtube.com/channel/UCuuy-c1b2huG0scuyvJH8GA)**
+
+[![Watch the demo](assets/images/icon.png)](https://www.youtube.com/channel/UCuuy-c1b2huG0scuyvJH8GA)
 
 ### Main Flow
 

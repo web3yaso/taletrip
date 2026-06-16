@@ -153,7 +153,7 @@ npx tsc --noEmit && npm test                     # type-check + 37 pure-logic un
 - Laptop: `artifacts/runs/<timestamp>-generate/events.jsonl` (+ `run.json` manifest) — one timestamped line per `loadModel` / `completion` / `diffusion` / `ragSearch`, plus a `runEnd` summary.
 - iPad: `documents/evidence/<date>.jsonl` — device-tagged JSONL for every on-device inference, exported via Finder file sharing.
 
-**Other artifacts:** demo video (link in `README.md`), rehearsal script `docs/taletrip-demo-runbook.md`, benchmark report `docs/qvac-bench-report.md`, regression checklist `docs/taletrip-regression-checklist.md`.
+**Other artifacts:** [demo video](https://www.youtube.com/channel/UCuuy-c1b2huG0scuyvJH8GA), rehearsal script `docs/taletrip-demo-runbook.md`, benchmark report `docs/qvac-bench-report.md`, regression checklist `docs/taletrip-regression-checklist.md`.
 
 ---
 
