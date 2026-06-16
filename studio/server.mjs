@@ -173,6 +173,13 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n  TaleTrip Parent Studio → http://localhost:${PORT}\n`);
+  // seed the bundled demo book over P2P right away so the iPad "Receive the book"
+  // works without first opening the browser UI (which is what calls /api/packs).
+  if (fs.existsSync("studio/packs/barcelona-sofia/storypack.json")) {
+    publishPack("barcelona-sofia")
+      .then(({ keyHex }) => console.log(`  📡 demo book seeded → pear://${keyHex}/…\n`))
+      .catch((e) => console.log("  seed error:", e));
+  }
   // warm the models so the first generation is fast
   loadEngines((m) => console.log("  " + m)).then(() => console.log("  engines ready ✅\n")).catch((e) => console.log("  warmup error:", e));
 });

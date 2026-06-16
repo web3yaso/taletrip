@@ -196,12 +196,19 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
   await unloadOrchestrator();
 
   // style RAG: match the books the child loves to a shared picture-book corpus
-  // (EmbeddingGemma) and steer the writer toward that cadence/devices.
-  let styleGuide = "";
+  // (EmbeddingGemma). writeGuide steers the writer's cadence; artStyle steers the
+  // SDXL illustrator so the chosen book changes BOTH the prose and the art.
+  let style = { title: "", writeGuide: "", artStyle: "" };
   if (req.favoriteBooks) {
     onProgress("📚 matching your child's favorite picture-book style…", step, total);
-    try { styleGuide = await retrieveStyle(req.favoriteBooks); } catch {}
+    try { style = await retrieveStyle(req.favoriteBooks); } catch {}
+    if (style.title) onProgress(`📚 styling after "${style.title}"`, step, total);
   }
+  const artStyle = style.artStyle || STYLE; // book's art when chosen, else the default look
+  // a consistent protagonist description so the SAME child appears on every page
+  // and the picture actually depicts who the narration is about.
+  const who = req.gender === "girl" ? "girl" : req.gender === "boy" ? "boy" : "child";
+  const subject = childName ? `${childName}, a ${req.age ? req.age + "-year-old " : ""}${who}` : `a young ${who}`;
 
   const pages = [];
   const vocabAll = {};
@@ -213,7 +220,7 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     onProgress(`✍️ writing page ${i + 1} of ${scenes.length}…`, ++step, total);
     const tw = Date.now();
     const msgs = narrationMessages(scene.summary, childName, destination);
-    if (styleGuide) msgs[0].content += ` ${styleGuide}`;
+    if (style.writeGuide) msgs[0].content += ` ${style.writeGuide}`;
     if (facts.length) msgs[0].content += ` Weave in naturally if it fits: ${facts.join(" ")}`;
     if (likes) msgs[0].content += ` The child loves ${likes}.`;
     if (req.gender === "girl" || req.gender === "boy") msgs[0].content += ` ${childName} is a ${req.gender}.`;
@@ -228,8 +235,10 @@ export async function generateStoryPackAgentic(req, onProgress = () => {}) {
     // moves smoothly through the ~1min render instead of freezing
     onProgress(`🎨 painting page ${i + 1} of ${scenes.length}…`, ++step, total);
     const tp = Date.now();
+    // paint the SAME scene the page narrates, starring the same child, in the
+    // chosen book's art style — this is what keeps text and picture in sync.
     const { progressStream, outputs } = sdk.diffusion({
-      modelId: sd, prompt: `${scene.visual || scene.summary}, ${STYLE}`, negative_prompt: NEG,
+      modelId: sd, prompt: `${subject}. ${scene.visual || scene.summary}. ${artStyle}`, negative_prompt: NEG,
       ...PAINT, cfg_scale: 8, seed: 40 + i * 7,
     });
     for await (const tick of progressStream) {
