@@ -7,6 +7,7 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { currentPackId, listPacks, loadPackRaw } from "@/storypack/store";
 import type { SleepPlan } from "@/storypack/types";
+import { inAutoEnterWindow, nightIndex, roughAdjustMinutes, toHHMM, toMin } from "./schedule";
 
 export type SleepQuality = "smooth" | "ok" | "rough";
 export type SleepLogEntry = { date: string; quality: SleepQuality };
@@ -40,15 +41,6 @@ export function loadSleepPlan(): SleepPlan | null {
   return loadPackRaw(id)?.sleepPlan ?? null;
 }
 
-const toMin = (hhmm: string) => {
-  const [h, m] = hhmm.split(":").map(Number);
-  return (h % 24) * 60 + (m || 0);
-};
-const toHHMM = (min: number) => {
-  const m = ((min % 1440) + 1440) % 1440;
-  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-};
-
 export type Tonight = {
   dayIndex: number;
   label: string;
@@ -68,22 +60,18 @@ export function tonight(plan: SleepPlan, overrideIndex?: number | null): Tonight
   const firstArrivalIdx = Math.max(0, plan.days.findIndex((d) => d.label.startsWith("Night 1")));
   let idx: number;
   if (overrideIndex != null) {
-    idx = overrideIndex;
+    idx = Math.min(plan.days.length - 1, Math.max(0, overrideIndex));
   } else {
     const log = loadSleepLog();
-    if (!log.length) {
-      idx = firstArrivalIdx; // no check-ins yet -> Night 1
-    } else {
-      const first = new Date(log[0].date + "T00:00:00");
-      const now = new Date(today() + "T00:00:00");
-      const nightsSince = Math.max(0, Math.round((now.getTime() - first.getTime()) / 86400000));
-      idx = firstArrivalIdx + 1 + nightsSince; // first check-in morning -> tonight is Night 2
-    }
+    const first = log.length ? new Date(log[0].date + "T00:00:00") : null;
+    const nightsSince = first
+      ? Math.round((new Date(today() + "T00:00:00").getTime() - first.getTime()) / 86400000)
+      : 0;
+    idx = nightIndex(firstArrivalIdx, log.length > 0, nightsSince, plan.days.length);
   }
-  idx = Math.min(plan.days.length - 1, Math.max(0, idx));
   const day = plan.days[idx];
   const rough = todaysCheckIn()?.quality === "rough";
-  const adjustedBy = rough && day.bedtime !== "—" ? 20 : 0; // rough night -> ~20min later tonight
+  const adjustedBy = roughAdjustMinutes(day.bedtime, rough); // rough night -> ~20min later tonight
   return {
     dayIndex: idx,
     label: day.label,
@@ -98,11 +86,7 @@ export function tonight(plan: SleepPlan, overrideIndex?: number | null): Tonight
 
 // auto-enter window: within [target, target+90min] tonight (design §9)
 export function shouldAutoEnter(plan: SleepPlan, now = new Date()): boolean {
-  const t = tonight(plan);
-  if (t.bedtime === "—") return false;
-  const cur = now.getHours() * 60 + now.getMinutes();
-  const target = toMin(t.bedtime);
-  return cur >= target && cur <= target + 90;
+  return inAutoEnterWindow(tonight(plan).bedtime, now);
 }
 
 // "not tonight" — manual exit suppresses re-entry until tomorrow
