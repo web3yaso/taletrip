@@ -3,7 +3,11 @@
 
   # TaleTrip
 
-  > Parents turn a family trip into a personalized, bilingual AI picture book — generated and read **fully offline, on-device**. A Mac "Parent Studio" writes and illustrates the tale; an iPad "Kid app" reads it aloud, teaches words, and plays camera games. No cloud, no accounts, no data leaving the device.
+  **Turn a family trip into a personalized, bilingual AI picture book — created &amp; read 100% on-device.**
+
+  A parent's **Mac** writes &amp; illustrates the book → sent to the kid's **iPad** over **P2P** → the kid reads it aloud, learns Spanish, and plays camera games.
+
+  _No cloud. No accounts. No data ever leaves the device._
 
   ![Expo SDK](https://img.shields.io/badge/Expo-SDK%2056-000020?logo=expo)
   ![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react)
