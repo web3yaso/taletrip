@@ -149,7 +149,7 @@ flowchart LR
 
 ## Evidence & Artifacts
 
-Dual-side, on-device evidence is bundled in **`taletrip-evidence.zip`** (submitted as an attachment — raw logs are git-ignored). It contains:
+Dual-side, on-device evidence is bundled in **[`taletrip-evidence.zip`](https://github.com/web3yaso/taletrip/releases/download/v0.1-demo/taletrip-evidence.zip)** (a [GitHub Release](https://github.com/web3yaso/taletrip/releases/tag/v0.1-demo) asset — raw logs are git-ignored). It contains:
 
 - `mac-runs/` — per-run Studio traces (`events.jsonl` + `run.json`): every `loadModel` / `completion` / `diffusion` / `ragSearch` / `toolCall`, device-tagged `mac-studio`.
 - `ipad-evidence/2026-06-16.jsonl` — every **on-device iPad** inference (TTS, SmolVLM, Llama 1B, P2P `downloadAsset`), device-tagged `iPad Pro (12.9-inch) (3rd generation)`.
