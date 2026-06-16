@@ -96,9 +96,15 @@ export const completion: typeof _completion = ((params: any) => {
   const model = idToName.get(String(params?.modelId)) ?? "unknown";
   const multimodal = !!params?.history?.some((m: any) => m?.attachments?.length);
   const run = _completion(params);
-  return timeProp(run as object, "text", (ms, val) =>
-    logEvent("completion", { model, multimodal, durMs: ms, outputChars: typeof val === "string" ? val.length : -1 }),
-  ) as ReturnType<typeof _completion>;
+  return timeProp(run as object, "text", async (ms, val) => {
+    // pull per-call token/timing metrics from run.stats (QVAC SDK exposes them)
+    let st: Record<string, unknown> = {};
+    try {
+      const s = await (run as any)?.stats;
+      if (s) st = { promptTokens: s.promptTokens, generatedTokens: s.generatedTokens, ttftMs: s.timeToFirstToken, tokensPerSec: s.tokensPerSecond, backend: s.backendDevice };
+    } catch {}
+    logEvent("completion", { model, multimodal, durMs: ms, outputChars: typeof val === "string" ? val.length : -1, ...st });
+  }) as ReturnType<typeof _completion>;
 }) as typeof _completion;
 
 export const textToSpeech: typeof _textToSpeech = ((params: any) => {

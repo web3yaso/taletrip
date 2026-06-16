@@ -8,7 +8,7 @@
 import fs from "bare-fs";
 import path from "bare-path";
 import { QWEN3_4B_INST_Q4_K_M } from "@qvac/sdk";
-import { logEvent } from "./evidence.mjs";
+import { logEvent, completionStats } from "./evidence.mjs";
 import {
   sdk, loadEngines, pickVocab,
   STYLE, NEG, PACKS_ROOT, safeSlug,
@@ -107,7 +107,7 @@ export async function parseTripRequest(text) {
     responseFormat: { type: "json_schema", json_schema: { name: "trip", schema: tripSchema } },
   });
   const out = JSON.parse(await r.text);
-  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "trip-parser", durMs: Date.now() - t0, outputChars: JSON.stringify(out).length });
+  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "trip-parser", durMs: Date.now() - t0, outputChars: JSON.stringify(out).length, ...(await completionStats(r)) });
   logEvent("toolCall", { tool: "parse_request", destination: out.destination, days: out.days });
   return out;
 }
@@ -125,7 +125,7 @@ async function planScenes(orc, destination, childName, nPages, likes) {
     responseFormat: { type: "json_schema", json_schema: { name: "plan", schema: planSchema } },
   });
   const text = await r.text;
-  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "planner", durMs: Date.now() - t0, outputChars: text.length });
+  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "planner", durMs: Date.now() - t0, outputChars: text.length, ...(await completionStats(r)) });
   const scenes = JSON.parse(text).scenes?.slice(0, nPages);
   if (!scenes?.length) throw new Error("planner returned no scenes");
   return scenes;
@@ -145,7 +145,7 @@ async function researchScene(orc, destination, summary, onTrace) {
     responseFormat: { type: "json_schema", json_schema: { name: "tool_call", schema: lookupSchema } },
   });
   const text = await run.text;
-  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "researcher", durMs: Date.now() - t0, outputChars: text.length });
+  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "researcher", durMs: Date.now() - t0, outputChars: text.length, ...(await completionStats(run)) });
   const call = JSON.parse(text);
   if (call?.tool !== "lookup_facts" || !call?.topic) return [];
   const topic = String(call.topic);
@@ -187,7 +187,7 @@ async function writeBook(orc, scenes, factsPer, childName, destination, likes, w
     responseFormat: { type: "json_schema", json_schema: { name: "book", schema: bookSchema } },
   });
   const text = await r.text;
-  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "writer", durMs: Date.now() - t0, outputChars: text.length });
+  logEvent("completion", { model: "QWEN3_4B_INST_Q4_K_M", role: "writer", durMs: Date.now() - t0, outputChars: text.length, ...(await completionStats(r)) });
   const pages = JSON.parse(text).pages;
   if (!Array.isArray(pages)) throw new Error("writer returned no pages");
   return pages;

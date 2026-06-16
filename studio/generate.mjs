@@ -13,7 +13,7 @@ export const safeSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-
 import { llmPlugin } from "@qvac/sdk/llamacpp-completion/plugin";
 import { diffusionPlugin } from "@qvac/sdk/sdcpp-generation/plugin";
 import { embeddingsPlugin } from "@qvac/sdk/llamacpp-embedding/plugin";
-import { logEvent } from "./evidence.mjs";
+import { logEvent, completionStats } from "./evidence.mjs";
 import { vetNarration } from "./text-quality.mjs";
 
 export const sdk = plugins([llmPlugin, diffusionPlugin, embeddingsPlugin]);
@@ -94,7 +94,7 @@ export async function generateStoryPack(req, onProgress = () => {}) {
     const r = sdk.completion({ modelId: llm, history: narrationMessages(scenes[i], childName, destination), stream: false });
     const merged = (await r.text).trim().replace(/\s*\n+\s*/g, " ").replace(/\s+/g, " ").trim();
     const text = vetNarration(merged, scenes[i], childName); // catches degenerate repetition
-    logEvent("completion", { model: "LLAMA_3_2_1B_INST_Q4_0", page: i, durMs: Date.now() - tw, outputChars: text.length });
+    logEvent("completion", { model: "LLAMA_3_2_1B_INST_Q4_0", page: i, durMs: Date.now() - tw, outputChars: text.length, ...(await completionStats(r)) });
     for (const v of pickVocab(text)) vocabAll[v.word] = v;
     pages.push({ index: i, image: `p${i}.png`, scene: scenes[i], authoredNarration: text, slots: [] });
   }

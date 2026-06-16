@@ -28,6 +28,23 @@ export function logEvent(op, meta = {}) {
   } catch { /* never break generation */ }
 }
 
+// Pull per-call inference metrics from a CompletionRun's `stats` promise so the
+// audit log can record prompt/generated tokens, time-to-first-token, and
+// tokens/sec (QVAC SDK exposes these on run.stats). Safe on any failure.
+export async function completionStats(run) {
+  try {
+    const s = await run?.stats;
+    if (!s) return {};
+    return {
+      promptTokens: s.promptTokens,
+      generatedTokens: s.generatedTokens,
+      ttftMs: s.timeToFirstToken,
+      tokensPerSec: s.tokensPerSecond,
+      backend: s.backendDevice,
+    };
+  } catch { return {}; }
+}
+
 export function endRun(summary = {}) {
   try {
     if (!runDir) return;

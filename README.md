@@ -169,6 +169,14 @@ Dual-side, on-device evidence is bundled in **[`taletrip-evidence.zip`](https://
 
 In this repo, the same docs live under [`docs/`](docs/) — see **[`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md)** for the full architecture and a captured-run evidence excerpt. (The demo video link goes in the Demo section above.)
 
+### Remote APIs
+
+**None.** All AI inference and RAG run on-device through the QVAC SDK — there are no cloud/LLM APIs. The only network use is **device-to-device P2P** (`pear://` Hyperdrive/Hyperswarm) to deliver a generated StoryPack from the parent's laptop to the kid's iPad; the iPad also works fully offline from the bundled book.
+
+### Structured audit log
+
+Every run writes a JSONL audit log (`artifacts/runs/<ts>/events.jsonl` on the Mac, `documents/evidence/<date>.jsonl` on the iPad). For a single demo run it captures **model loads/unloads** and **per-inference performance** — each `completion` records `promptTokens`, `generatedTokens`, `ttftMs` (time-to-first-token), `tokensPerSec`, and `backend` (cpu/gpu), alongside `loadModel` / `unloadModel`, `diffusion`, `ragSearch`, and `toolCall` events. Instrumentation lives at a single choke point (`src/models/qvac.ts`, `studio/evidence.mjs`).
+
 ## Risks
 
 - **On-device compute:** heavy generation needs a capable Apple Silicon Mac; older iPads run the reader and games, not generation.
