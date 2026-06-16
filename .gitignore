@@ -41,3 +41,6 @@ yarn-debug.*
 yarn-error.*
 studio/.ragcache/
 studio/profile.json
+
+# generated QR images (pairing-key codes)
+taletrip-qr.png
