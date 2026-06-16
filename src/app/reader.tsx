@@ -25,8 +25,7 @@ function StoryText({ page, vocab, onWord }: { page: ReaderPage; vocab: ReaderVoc
           <Text key={i}>{p.t}</Text>
         ) : (
           <Text key={i} onPress={() => onWord(p.v)} style={{ color: C.ink, backgroundColor: C.blue + "33", borderRadius: 8 }}>
-            {" "}
-            {vocab[p.v]?.en ?? p.v}{" "}
+            {vocab[p.v]?.en ?? p.v}
           </Text>
         ),
       )}
@@ -74,6 +73,9 @@ export default function Reader() {
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
+      // warm the TTS voice as soon as the Reader is focused so the first
+      // read-aloud isn't blocked by a cold model load (perceived "no audio").
+      ModelManager.ensureTTS("en").catch(() => {});
       return () => {
         setFocused(false);
         stopPcm();
@@ -107,6 +109,15 @@ export default function Reader() {
   // load a StoryPack from the device documents (seed the bundled demo on first run)
   useEffect(() => {
     let cancelled = false;
+    // The requested book changed (navigate with a new id/ts). Drop the previous
+    // story and stop its audio IMMEDIATELY — otherwise, during this async load,
+    // the narration effect keeps speaking the PREVIOUS book (you'd hear the wrong
+    // story on open) and a late setStory() could restart audio right after a
+    // pause. We speak the new book only once it's actually loaded below.
+    reqRef.current++;
+    stopPcm();
+    setReading(false);
+    setStory(null);
     (async () => {
       try {
         await seedBundledIfEmpty();
@@ -155,13 +166,17 @@ export default function Reader() {
       setReading(true);
       await ModelManager.ensureTTS("en");
       const ttsId = ModelManager.ttsId();
-      if (!ttsId || req !== reqRef.current) return;
+      if (req !== reqRef.current) return; // superseded — a newer call owns `reading`
+      if (!ttsId) { setReading(false); return; }
       const buf = await textToSpeech({ modelId: ttsId, text: readerPageText(pg, story.vocab), inputType: "text", stream: false }).buffer;
       if (req !== reqRef.current) return;
+      // playPcm resolves when playback STARTS (not ends) — so keep `reading` true
+      // for the clip's whole duration (the badge stays "Pause", and tapping it
+      // pauses instead of re-triggering a play). Auto-clear when the clip ends.
       await playPcm(buf, TTS_SAMPLE_RATE);
+      const clipMs = (buf.length / TTS_SAMPLE_RATE) * 1000;
+      setTimeout(() => { if (req === reqRef.current) setReading(false); }, clipMs + 150);
     } catch {
-      /* best-effort */
-    } finally {
       if (req === reqRef.current) setReading(false);
     }
   }, [story, pg]);
@@ -178,18 +193,28 @@ export default function Reader() {
     }
   }, [silent, reading, speakPage]);
 
-  // read the current page aloud (unless Silent Mode)
+  // keep the latest speakPage in a ref so the auto-play effect can call it
+  // WITHOUT depending on its identity — otherwise an incidental re-render (e.g.
+  // pressing Pause flips `reading`, or React Compiler re-derives the callback)
+  // re-runs the effect and RESTARTS narration a few seconds later.
+  const speakPageRef = useRef(speakPage);
+  speakPageRef.current = speakPage;
+
+  // read the current page aloud — only when there is genuinely a new page/book
+  // to read (page/story/focus/silent), never on every render.
   useEffect(() => {
-    if (!focused || silent || !story || !pg) {
+    if (!focused || silent || !story || !story.pages[page]) {
       stopPcm();
       setReading(false);
       return;
     }
-    void speakPage();
+    void speakPageRef.current();
     return () => {
       stopPcm();
     };
-  }, [page, silent, pg, story, focused, speakPage]);
+    // speakPage/pg deliberately excluded so re-renders don't restart audio.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, silent, story, focused]);
 
   useEffect(() => () => stopPcm(), []);
 

@@ -27,9 +27,18 @@ function tokenize(text: string, vocabWords: string[]): ReaderPart[] {
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
+    const end = m.index + m[0].length;
+    const before = text[m.index - 1];
+    const after = text[end];
+    // \b treats "-" and "'" as boundaries, so "sun" would match inside
+    // "sun-kissed" and split the word. Skip those — keep them as plain text.
+    if (before === "-" || after === "-" || before === "'" || after === "'") {
+      if (m.index === re.lastIndex) re.lastIndex++; // guard zero-width
+      continue;
+    }
     if (m.index > last) parts.push({ t: text.slice(last, m.index) });
     parts.push({ v: m[1].toLowerCase() });
-    last = m.index + m[0].length;
+    last = end;
     if (m.index === re.lastIndex) re.lastIndex++; // guard zero-width
   }
   if (last < text.length) parts.push({ t: text.slice(last) });
