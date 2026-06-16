@@ -36,9 +36,19 @@ export function todaysCheckIn(): SleepLogEntry | null {
 }
 
 export function loadSleepPlan(): SleepPlan | null {
-  const id = currentPackId() ?? listPacks()[0]?.id;
-  if (!id) return null;
-  return loadPackRaw(id)?.sleepPlan ?? null;
+  // The jet-lag plan belongs to the TRIP, not whichever book is open now — so if
+  // the current pack has none (e.g. the kid's Photo Story), fall back to any pack
+  // that does. Otherwise tapping 🌙 would skip the coach and go straight to wind-down.
+  const cur = currentPackId();
+  if (cur) {
+    const p = loadPackRaw(cur)?.sleepPlan;
+    if (p) return p;
+  }
+  for (const pack of listPacks()) {
+    const p = loadPackRaw(pack.id)?.sleepPlan;
+    if (p) return p;
+  }
+  return null;
 }
 
 export type Tonight = {
