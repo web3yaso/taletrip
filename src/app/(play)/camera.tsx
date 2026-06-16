@@ -11,7 +11,7 @@ import {
   addPhoto, deletePhoto, listPhotos, makePhotoStory,
   MAX_PHOTOS, MIN_PHOTOS, type GenProgress, type GenStage,
 } from "@/photostory/pipeline";
-import { Btn, MuteButton, Pill } from "@/ui/chrome";
+import { Btn, Circ, MuteButton, Pill } from "@/ui/chrome";
 import { Icon } from "@/ui/icon";
 import { useMuted } from "@/reading/mute";
 import { C, F, SHADOW } from "@/ui/tokens";
@@ -92,7 +92,7 @@ export default function MyCamera() {
     <View style={{ flex: 1, backgroundColor: C.paperDeep }}>
       {/* top bar */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 22, paddingHorizontal: 26, paddingBottom: 6 }}>
-        <Pill icon="lock">Parents</Pill>
+        <Circ icon="back" label="Play" onPress={() => router.navigate("/activities")} />
         <Text style={{ fontFamily: F.display, fontWeight: "600", fontSize: 30, color: C.ink }}>My Camera</Text>
         <MuteButton silent={silent} onToggle={toggleSilent} compact />
       </View>

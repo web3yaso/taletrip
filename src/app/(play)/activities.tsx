@@ -1,6 +1,7 @@
-// src/app/activities.tsx
-// TaleTrip Kid · Activities hub — a 2x2 launcher (Read / Color / Hunt / Words),
-// faithful to the Claude Design mockup. Each tile routes to a section.
+// src/app/(play)/activities.tsx
+// TaleTrip Kid · Play hub — launches the two camera games (Scavenger Hunt and
+// Photo story), which live in this same (play) stack. Reading and "Get a book"
+// have their own bottom tabs, so they're not duplicated here.
 import { Pressable, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { MuteButton, Pill } from "@/ui/chrome";
@@ -12,8 +13,6 @@ import { C, F, SHADOW, type Mood } from "@/ui/tokens";
 type Tile = { title: string; subtitle: string; icon: string; href: Href; mood: Mood; seed: number; iconFill?: boolean };
 
 const TILES: Tile[] = [
-  { title: "Read a story", subtitle: "Tap the colored words", icon: "book", href: "/reader", mood: "sky", seed: 12 },
-  { title: "Get a book", subtitle: "Scan a grown-up's code", icon: "download", href: "/p2p", mood: "earth", seed: 31 },
   { title: "Scavenger hunt", subtitle: "Find it with the camera", icon: "search", href: "/hunt", mood: "garden", seed: 47 },
   { title: "Photo story", subtitle: "Snap photos, make a tale", icon: "camera", href: "/camera", mood: "sea", seed: 63 },
 ];
@@ -63,14 +62,11 @@ export default function Activities() {
         <Text style={{ fontFamily: F.displayItalic, fontSize: 21, color: C.accentD }}>Pick something to play</Text>
       </View>
 
-      <View style={{ flex: 1, paddingHorizontal: 40, paddingTop: 16, paddingBottom: 34, gap: 18 }}>
-        <View style={{ flex: 1, flexDirection: "row", gap: 18 }}>
-          <TileCard tile={TILES[0]} />
-          <TileCard tile={TILES[1]} />
-        </View>
-        <View style={{ flex: 1, flexDirection: "row", gap: 18 }}>
-          <TileCard tile={TILES[2]} />
-          <TileCard tile={TILES[3]} />
+      <View style={{ flex: 1, paddingHorizontal: 40, paddingTop: 16, paddingBottom: 34, justifyContent: "center" }}>
+        <View style={{ flexDirection: "row", gap: 18, height: 320 }}>
+          {TILES.map((t) => (
+            <TileCard key={t.title} tile={t} />
+          ))}
         </View>
       </View>
     </View>

@@ -3,34 +3,20 @@
 // an on-device VLM (SmolVLM 500M) decides yes/no. Fully offline. Per-pack targets.
 import { useCallback, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { File } from "expo-file-system";
 import Svg, { Circle } from "react-native-svg";
 import { ModelManager } from "@/models/model-manager";
 import { completion, huntPrompt, textToSpeech, TTS_SAMPLE_RATE } from "@/models/qvac";
 import { playPcm, stopPcm } from "@/reading/audio-player";
-import { Btn, MuteButton, Pill } from "@/ui/chrome";
+import { matchesTarget, sampleTargets } from "@/hunt/match";
+import { Btn, Circ, MuteButton, Pill } from "@/ui/chrome";
 import { Icon } from "@/ui/icon";
 import { useMuted } from "@/reading/mute";
 import { C, F, SHADOW } from "@/ui/tokens";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-// Findable-around-the-house objects SmolVLM can verify — each round samples 3.
-const POOL = [
-  "book", "cup", "chair", "table", "shoe", "plant", "window", "door",
-  "bottle", "ball", "clock", "pillow", "spoon", "hat", "sock", "lamp",
-  "toy", "backpack",
-];
-function sampleTargets(exclude: string[] = []): string[] {
-  const pool = POOL.filter((t) => !exclude.includes(t));
-  const out: string[] = [];
-  while (out.length < 3 && pool.length) {
-    out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-  }
-  return out;
-}
 
 function ProgressRing({ found, total }: { found: number; total: number }) {
   const r = 26, c = 2 * Math.PI * r;
@@ -50,6 +36,7 @@ export default function Hunt() {
   const [silent, toggleSilent] = useMuted();
   const [perm, requestPerm] = useCameraPermissions();
   const camRef = useRef<CameraView>(null);
+  const router = useRouter();
 
   const [targets, setTargets] = useState<string[]>(() => sampleTargets());
   const [found, setFound] = useState<Set<string>>(new Set());
@@ -129,11 +116,11 @@ export default function Hunt() {
       const t0 = Date.now();
       const run = completion({
         modelId: vlm, stream: false,
-        history: [{ role: "user", content: huntPrompt(target), attachments: [{ path: photoUri.replace("file://", "") }] }],
+        history: [{ role: "user", content: huntPrompt(), attachments: [{ path: photoUri.replace("file://", "") }] }],
       });
       const answer = (await run.text).toLowerCase();
       const secs = ((Date.now() - t0) / 1000).toFixed(1);
-      if (/\byes\b/.test(answer)) {
+      if (matchesTarget(answer, target)) {
         const next = new Set(found); next.add(target); setFound(next);
         const remaining = targets.findIndex((t) => !next.has(t));
         if (remaining === -1) setStatus(`You found everything! 🎉 (${secs}s)`);
@@ -157,7 +144,10 @@ export default function Hunt() {
   return (
     <View style={{ flex: 1, backgroundColor: C.paper }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 22, paddingHorizontal: 26, paddingBottom: 4 }}>
-        <Pill icon="lock">Parents</Pill>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Circ icon="back" label="Play" onPress={() => router.navigate("/activities")} />
+          <Pill icon="lock">Parents</Pill>
+        </View>
         <MuteButton silent={silent} onToggle={toggleSilent} />
       </View>
 

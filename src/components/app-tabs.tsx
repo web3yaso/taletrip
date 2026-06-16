@@ -28,19 +28,9 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf="book.fill" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="activities">
+      <NativeTabs.Trigger name="(play)">
         <NativeTabs.Trigger.Label>Play</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="hunt">
-        <NativeTabs.Trigger.Label>Hunt</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="binoculars.fill" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="camera">
-        <NativeTabs.Trigger.Label>Camera</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="camera.fill" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="p2p">

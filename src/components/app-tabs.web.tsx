@@ -30,12 +30,6 @@ export default function AppTabs() {
           <TabTrigger name="activities" href="/activities" asChild>
             <TabButton>Play</TabButton>
           </TabTrigger>
-          <TabTrigger name="hunt" href="/hunt" asChild>
-            <TabButton>Hunt</TabButton>
-          </TabTrigger>
-          <TabTrigger name="camera" href="/camera" asChild>
-            <TabButton>Camera</TabButton>
-          </TabTrigger>
           <TabTrigger name="p2p" href="/p2p" asChild>
             <TabButton>Get a book</TabButton>
           </TabTrigger>

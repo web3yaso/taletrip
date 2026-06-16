@@ -43,9 +43,12 @@ export const translateMessages = (text: string) => [
   { role: "user", content: text },
 ];
 
-// Strict VLM hunt prompt — the "if unsure answer no" clause is load-bearing.
-export const huntPrompt = (target: string) =>
-  `Look carefully. Is there a real ${target} in this image? Answer only 'yes' or 'no'. If you are not sure, answer 'no'.`;
+// Open-ended hunt prompt. A yes/no question makes tiny VLMs (SmolVLM 500M) answer
+// "yes" to everything (strong affirmative bias). Asking it to NAME the object
+// instead forces it to ground its answer in what it actually sees; we then match
+// the named object against the target in JS (see hunt.tsx `matchesTarget`).
+export const huntPrompt = () =>
+  `Look at this photo. Name the single main object you see. Reply with ONLY the object name in one or two words — no sentence, no punctuation.`;
 
 // ── evidence instrumentation ────────────────────────────────────────────────
 const idToName = new Map<string, string>(); // modelId -> human model name
