@@ -8,7 +8,7 @@
 // iPad can adapt offline while every medical sentence still comes from MedPsy.
 import fs from "bare-fs";
 import path from "bare-path";
-import { logEvent } from "./evidence.mjs";
+import { logEvent, completionStats } from "./evidence.mjs";
 import { sdk } from "./generate.mjs";
 import { sanitizeAdvice } from "./advice-sanitize.mjs";
 
@@ -163,7 +163,7 @@ async function adviseDay(id, destination, age, shiftHours, day) {
       responseFormat: { type: "json_schema", json_schema: { name: "advice", schema: adviceSchema } },
     });
     const out = JSON.parse((await r.text).replace(/<think>[\s\S]*?<\/think>/g, ""));
-    logEvent("completion", { model: "MedPsy-1.7B-Q4_K_M(local)", role: "sleep-advisor", day: day.label, durMs: Date.now() - t0 });
+    logEvent("completion", { model: "MedPsy-1.7B-Q4_K_M(local)", role: "sleep-advisor", day: day.label, durMs: Date.now() - t0, ...(await completionStats(r)) });
     // deterministic clean-up: one clean sentence, no echoed labels / clock times
     return {
       advice: sanitizeAdvice(out.advice, "advice", day.phase),
